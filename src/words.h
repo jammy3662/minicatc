@@ -3,24 +3,20 @@
 
 #include <stdio.h>
 
+#include "container.h"
+
 struct Word
 {
-	enum ID { INT=('~'+2), FINT, DEC, TXT, SYMB };
+	enum ID { INT=('~'+2), FLOAT, STR, TXT };
 	
-	char* str;
+	arr <char> str;
 	int id;
 	
 	union value
 	{
-		char c;
-		short s;
-		int i;
-				union {
-		long l;
-		void* p;
-				};
-		float f;
-		double d;
+		char c; short s; int i;
+		long l; void* p;
+		float f; double d;
 	}
 	value;
 };

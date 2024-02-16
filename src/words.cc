@@ -1,96 +1,197 @@
 #include "words.h"
 
 #include "stdlib.h"
+#include <ctype.h>
 
-Word getword (FILE* stream)
+Word getnumber (char first, FILE* f)
 {
-	Word word = {0};
-	int i = 0;
-	int sz = 32;
+	Word w;
+	w.id = Word::INT;
+	w.str.append (first);
 	
-	word.str = (char*) malloc (sz * sizeof (char));
-	word.id = 0;
+	char c = fgetc (f);
 	
-	#define append() word.str [i] = c; i++; sz++; if (!(i % sz)) {	sz *= 2; char* s = word.str; word.str = (char*) realloc (word.str, sz * sizeof (char));	if (!word.str) printf ("Failed realloc %u bytes\n", sz);} 
+	char hasPrefix = 0, hasDecimal = 0, hasExponent = 0, hasNegativeInExponent = 0; 
 	
-	static char c; // preserve the last character pulled from the previous call
-	
-	// skip whitespace and non-printable chars
-	while (c < '!' || c > '~') c = fgetc (stream);
-	
-	if (c == -1)
+	// special case for a prefix
+	// in the second character
+	switch (c)
 	{
-		word.id = -1;
-		return word;
-	}
-
-getnumeric:
-	if (c >= '0' && c <= '9' ||	(c == '_' && word.id != 0))
-	{
-		if (word.id == 0) word.id = Word::INT;
-		if (c != '_')
-			append ();
-		
-		if (word.id == Word::INT)
-		{
-			char n = fgetc (stream);
-			
-			switch (n)
-			{ case 'x':
-			  case 'o':
-			  case 'b':
-					word.id = Word::FINT; break;
-			  case '.':
-					word.id = Word::DEC; break;
-			  default: break; }
-			c = n;
-			append ();
-		}
-		c = fgetc (stream);
-		goto getnumeric;
-	}
-	else if (word.id == Word::INT || word.id == Word::FINT || word.id == Word::DEC)
-		goto endword;
-
-getalpha:
-	if (c >= 'A' && c <= 'z' || c == '_')
-	{
-		word.id = Word::TXT;
-		append ();
-		c = fgetc (stream);
-		goto getalpha;
-	}
-	else if (word.id == Word::TXT) goto endword;
-
-	if ((c >= '!' && c <= '@') ||
-	    (c >= '[' && c <= '`') ||
-			(c >= '{' && c <= '~'))
-		{
-			append ();
-			word.id = c;
-			goto endword;
-		}
-		
-	
-endword:
-
-	word.str = (char*) realloc (word.str, i+1 * sizeof (char));
-	word.str [i] = 0;
-	
-	if (word.id < Word::INT) c = fgetc (stream);
-	
-	switch (word.id)
-	{
-		case Word::INT:
-		case Word::FINT:
-			word.value.l = strtol (word.str, 0x0, 0);
-			break;
-		case Word::DEC:
-			word.value.d = strtod (word.str, 0x0);
-			break;
+		case 'x': case 'o': case 'b':
+			w.str.append (c);
+			c = fgetc (f);
+			hasPrefix = 1;
+			goto readone;
 		default:
 			break;
 	}
 	
-	return word;
+readone:
+	
+	if (c == '_' || isdigit (c))
+	{
+		w.str.append (c);
+		c = fgetc (f);
+		goto readone;
+	}
+	if (c == '.' && !hasDecimal && !hasPrefix)
+	{
+		w.id = Word::FLOAT;
+		hasDecimal = 1;
+		goto readone;
+	}
+	if (c == 'e' || c == 'E' &&	!hasExponent && !hasPrefix)
+	{
+		w.id = Word::FLOAT;
+		hasExponent = 1;
+		w.str.append (c);
+		c = fgetc (f);
+		goto readone;
+	}
+	if (c == '-' && hasExponent && !hasNegativeInExponent && !hasPrefix)
+	{
+		hasNegativeInExponent = 1;
+		w.str.append (c);
+		c = fgetc (f);
+		goto readone;
+	}
+	if (c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'f' || c == 'F' || c == 'l' || c == 'L')
+	{
+		w.str.append (c);
+		return w;
+	}
+	
+	// found a non-number character,
+	// put it back and end the word
+	ungetc (c, f);
+	w.str.shrink();
+	return w;
+}
+
+Word getstring (char delim, FILE* f)
+{
+	Word w;
+	w.id = Word::STR;
+	
+	char c = fgetc (f);
+	
+	char escapedNow = 0;
+
+lookforclose:
+	while (c != delim)
+	{
+		if (c == '\\' && !escapedNow)
+			escapedNow = 1;
+		else
+			escapedNow = 0;
+		w.str.append (c);
+		c = fgetc (f);
+	}
+	if (escapedNow)
+	{
+		w.str.append (c);
+		c = fgetc (f);
+		goto lookforclose;
+	}
+	
+	return w;
+}
+
+Word getalpha (char first, FILE* f)
+{
+	Word w;
+	w.id = Word::TXT;
+	w.str.append (first);
+	
+	char c = fgetc (f);
+	
+	while (c == '_' || isalpha (c) || isdigit (c))
+	{
+		w.str.append (c);
+		c = fgetc (f);
+	}
+	
+	ungetc (c, f);
+	
+	w.str.shrink();
+	return w;
+}
+
+Word getdoubleop (char op, FILE* f)
+{
+	Word w;
+	w.id = op;
+	
+	char next = fgetc (f);
+	w.str.append (op);
+	
+	if (op == next)
+		w.str.append (op);
+	else
+		ungetc (next, f);
+	
+	w.str.shrink();
+	return w;
+}
+
+Word gettripleop (char op, FILE* f)
+{
+	Word w;
+	w.id = op;
+	
+	char next = fgetc (f), follow = fgetc (f);
+	w.str.append (op);
+	
+	if (op == next == follow)
+		w.str.append (op),
+		w.str.append (op);
+	else
+		ungetc (follow, f),
+		ungetc (next, f);
+	
+	w.str.shrink();
+	return w;
+}
+
+Word getword (FILE* stream)
+{
+	Word w;
+	w.id = -1;
+	
+	char c = fgetc (stream);
+	
+	while (isblank(c) || iscntrl(c))
+		c = fgetc (stream);
+	
+	if (c == '"' || c == '\'')
+	{
+		return getstring (c, stream);
+	}
+	if (c == '_' ||	isalpha (c))
+	{
+		return getalpha (c, stream);
+	}
+	if (isdigit (c))
+	{
+		return getnumber (c, stream);
+	}
+
+	w.id = c;
+	w.str.append (c);
+	
+	char* doubleOperators = "+=-/&|";
+	char* tripleOperators = ".<>";
+	for (char* op = doubleOperators; *op !=0; ++op)
+	{
+		if (*op == c)
+			return getdoubleop (c, stream);
+	}
+	for (char* op = tripleOperators; *op !=0; ++op)
+	{
+		if (*op == c)
+			return gettripleop (c, stream);
+	}
+	
+	w.str.shrink ();
+	return w;
 }
