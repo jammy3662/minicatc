@@ -86,6 +86,7 @@ nextc:
 	else escaped = 0;
 	
 	c = fgetc (f);
+	if (c == -1) { w.id = -1; return w; }
 		
 	if (c != delim || escaped) goto addc;
 	
