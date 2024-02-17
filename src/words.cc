@@ -80,6 +80,7 @@ Word getstring (char delim, FILE* f)
 lookforclose:
 	while (c != delim)
 	{
+		if (c == -1) { w.id = -1; w.str.append (0); w.str.shrink(); return w; }
 		if (c == '\\' && !escapedNow)
 			escapedNow = 1;
 		else
@@ -117,13 +118,54 @@ Word getalpha (char first, FILE* f)
 	return w;
 }
 
+Word getlinecom (FILE* f)
+{
+	Word w;
+	w.id = Word::COM_LINE;
+	w.str.append (0);
+	
+	char c = fgetc (f);
+	if (c == -1) { w.id = -1; return w; }
+	char n = fgetc (f);
+	
+	while (!(c != '\\' && c == '\n'))
+	{
+		if (n == -1) { w.id = -1; return w; }
+		c = n;
+		n = fgetc (f);
+	}
+	
+	return w;
+}
+
+Word getblockcom (FILE* f)
+{
+	Word w;
+	w.id = Word::COM_BLOCK;
+	w.str.append (0);
+	
+	char c = fgetc (f);
+	if (c == -1) { w.id = -1; return w; }
+	char n = fgetc (f);
+	
+	while (!(c == '*' && n == '/'))
+	{
+		if (n == -1) { w.id = -1; return w; }
+		c = n;
+		n = fgetc (f);
+	}
+	
+	return w;
+}
+
 Word getdoubleop (char op, FILE* f)
 {
 	Word w;
 	w.id = op;
+	w.str.append (op);
 	
 	char next = fgetc (f);
-	w.str.append (op);
+	if (next == -1) { ungetc (next, f); w.str.shrink(); return w; }
 	
 	if (op == next)
 		w.str.append (op);
@@ -138,9 +180,12 @@ Word gettripleop (char op, FILE* f)
 {
 	Word w;
 	w.id = op;
-	
-	char next = fgetc (f), follow = fgetc (f);
 	w.str.append (op);
+	
+	char next = fgetc (f);
+	if (next == -1) { ungetc (next, f); w.str.shrink(); return w; }
+	char follow = fgetc (f);
+	if (follow == -1) { ungetc (follow, f); w.str.shrink(); return w; }
 	
 	if (op == next == follow)
 		w.str.append (op),
@@ -178,6 +223,14 @@ Word getword (FILE* stream)
 
 	w.id = c;
 	w.str.append (c);
+	
+	if (c == '/')
+	{
+		char n = fgetc (stream);
+		if (n == '*') return getblockcom (stream);
+		if (n == '/') return getlinecom (stream);
+		else ungetc (n, stream);
+	}
 	
 	char* doubleOperators = "+=-/&|";
 	char* tripleOperators = ".<>";
