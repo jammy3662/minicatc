@@ -64,6 +64,7 @@ readone:
 	// found a non-number character,
 	// put it back and end the word
 	ungetc (c, f);
+	w.str.append (0);
 	w.str.shrink();
 	return w;
 }
@@ -90,6 +91,7 @@ nextc:
 		
 	if (c != delim || escaped) goto addc;
 	
+	w.str.append (0);
 	w.str.shrink();
 	return w;
 }
@@ -110,6 +112,7 @@ Word getalpha (char first, FILE* f)
 	
 	ungetc (c, f);
 	
+	w.str.append (0);
 	w.str.shrink();
 	return w;
 }
@@ -118,19 +121,32 @@ Word getlinecom (FILE* f)
 {
 	Word w;
 	w.id = Word::COM_LINE;
-	w.str.append (0);
 	
-	char c = fgetc (f);
-	if (c == -1) { w.id = -1; return w; }
+	char c = ' ';
+	while (isblank(c) || iscntrl(c))
+	{
+		c = fgetc (f);
+		if (c == -1) { w.str.append(0); w.id = -1; return w; }
+	}
+	w.str.append (c);
+	
 	char n = fgetc (f);
 	
-	while (!(c != '\\' && c == '\n'))
+	while (!(c != '\\' && n == '\n'))
 	{
-		if (n == -1) { w.id = -1; return w; }
+		if (n == -1) { w.str.append(0); w.id = -1; return w; }
+		w.str.append (n);
 		c = n;
 		n = fgetc (f);
 	}
 	
+	// remove trailing empty space
+	char* last = w.str.buf + w.str.count-1;
+	while (isblank(*last) || iscntrl(*last))
+		last--, w.str.count--;
+	
+	w.str.append(0);
+	w.str.shrink();
 	return w;
 }
 
@@ -138,19 +154,33 @@ Word getblockcom (FILE* f)
 {
 	Word w;
 	w.id = Word::COM_BLOCK;
-	w.str.append (0);
 	
-	char c = fgetc (f);
-	if (c == -1) { w.id = -1; return w; }
+	char c = ' ';
+	while (isblank(c) || iscntrl(c))
+	{
+		c = fgetc (f);
+		if (c == -1) { w.str.append(0); w.id = -1; return w; }
+	}
+	w.str.append (c);
+	
 	char n = fgetc (f);
 	
 	while (!(c == '*' && n == '/'))
 	{
-		if (n == -1) { w.id = -1; return w; }
+		if (n == -1) { w.str.append(0); w.id = -1; return w; }
+		w.str.append (n);
 		c = n;
 		n = fgetc (f);
 	}
 	
+	w.str.count -= 1; // remove the trailing '*' from '*/'
+	// remove trailing empty space
+	char* last = w.str.buf + w.str.count-1;
+	while (isblank(*last) || iscntrl(*last))
+		last--, w.str.count--;
+	
+	w.str.append(0);
+	w.str.shrink();
 	return w;
 }
 
@@ -161,13 +191,14 @@ Word getdoubleop (char op, FILE* f)
 	w.str.append (op);
 	
 	char next = fgetc (f);
-	if (next == -1) { ungetc (next, f); w.str.shrink(); return w; }
+	if (next == -1) { ungetc (next, f); w.str.append (0); w.str.shrink(); return w; }
 	
 	if (op == next)
 		w.str.append (op);
 	else
 		ungetc (next, f);
 	
+	w.str.append (0);
 	w.str.shrink();
 	return w;
 }
@@ -179,9 +210,9 @@ Word gettripleop (char op, FILE* f)
 	w.str.append (op);
 	
 	char next = fgetc (f);
-	if (next == -1) { ungetc (next, f); w.str.shrink(); return w; }
+	if (next == -1) { ungetc (next, f); w.str.append (0); w.str.shrink(); return w; }
 	char follow = fgetc (f);
-	if (follow == -1) { ungetc (follow, f); w.str.shrink(); return w; }
+	if (follow == -1) { ungetc (follow, f); w.str.append (0); w.str.shrink(); return w; }
 	
 	if (op == next == follow)
 		w.str.append (op),
@@ -190,6 +221,7 @@ Word gettripleop (char op, FILE* f)
 		ungetc (follow, f),
 		ungetc (next, f);
 	
+	w.str.append (0);
 	w.str.shrink();
 	return w;
 }
@@ -228,19 +260,22 @@ Word getword (FILE* stream)
 		else ungetc (n, stream);
 	}
 	
-	char* doubleOperators = "+=-/&|";
-	char* tripleOperators = ".<>";
-	for (char* op = doubleOperators; *op !=0; ++op)
+	const char*
+		doubleOperators = "+=-/&|";
+	const char*
+		tripleOperators = ".<>";
+	for (const char* op = doubleOperators; *op !=0; ++op)
 	{
 		if (*op == c)
 			return getdoubleop (c, stream);
 	}
-	for (char* op = tripleOperators; *op !=0; ++op)
+	for (const char* op = tripleOperators; *op !=0; ++op)
 	{
 		if (*op == c)
 			return gettripleop (c, stream);
 	}
 	
+	w.str.append (0);
 	w.str.shrink ();
 	return w;
 }

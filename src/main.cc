@@ -14,7 +14,7 @@ int main (int argc, char** argv)
 	{
 		if (!strcmp(argv[1], "--help"))
 		{
-			printf ("mcatc [SRC_FILE]\nIf you leave out SRC_FILE, it will read from standard input\n");
+			printf ("mcatc [SRC_FILE]\nIf you leave out SRC_FILE, reads from standard input\n");
 			return 0;
 		}
 		in = fopen (argv[1], "r");
@@ -30,7 +30,7 @@ int main (int argc, char** argv)
 	int idIdx = Word::TXT + 1;
 	int wordct = 2000;
 	
-	for (int i = 0; i < wordct; ++i)
+	for (int i = 0; 1; ++i)
 	{
 		Word w = getword (in);
 		int id = w.id;
