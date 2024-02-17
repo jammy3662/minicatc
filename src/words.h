@@ -7,7 +7,7 @@
 
 struct Word
 {
-	enum ID { INT=('~'+2), FLOAT, STR, TXT, COM_LINE, COM_BLOCK };
+	enum ID { INT=('~'+2), FLOAT, STR, COM_LINE, COM_BLOCK, TXT };
 	
 	arr <char> str;
 	int id;

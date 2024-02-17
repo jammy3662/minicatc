@@ -15,8 +15,8 @@ int main (int argc, char** argv)
 	
 	char* str;
 	
-	int idIdx = 0;
-	int wordct = 200;
+	int idIdx = Word::TXT + 1;
+	int wordct = 2000;
 	
 	for (int i = 0; i < wordct; ++i)
 	{

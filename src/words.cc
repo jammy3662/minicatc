@@ -73,28 +73,23 @@ Word getstring (char delim, FILE* f)
 	Word w;
 	w.id = Word::STR;
 	
-	char c = fgetc (f);
+	char escaped = 0;
 	
-	char escapedNow = 0;
-
-lookforclose:
-	while (c != delim)
-	{
-		if (c == -1) { w.id = -1; w.str.append (0); w.str.shrink(); return w; }
-		if (c == '\\' && !escapedNow)
-			escapedNow = 1;
-		else
-			escapedNow = 0;
-		w.str.append (c);
-		c = fgetc (f);
-	}
-	if (escapedNow)
-	{
-		w.str.append (c);
-		c = fgetc (f);
-		goto lookforclose;
-	}
+	char c = 0;
+	goto nextc;
 	
+addc:
+	w.str.append (c);
+nextc:
+	if (c == '\\' && !escaped)
+		escaped = 1;
+	else escaped = 0;
+	
+	c = fgetc (f);
+		
+	if (c != delim || escaped) goto addc;
+	
+	w.str.shrink();
 	return w;
 }
 
