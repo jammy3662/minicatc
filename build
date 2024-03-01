@@ -1,5 +1,5 @@
 #!/bin/bash
 
-clang++ -c src/*.cc -I include -g3
+clang++ -std=c++98 -c src/*.cc -I include -I src/cext -g3
 clang *.o -o mcatc -g3
 rm *.o

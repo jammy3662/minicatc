@@ -5,22 +5,22 @@
 
 #include "container.h"
 
+extern FILE* source;
+
 struct Word
 {
-	enum ID { INT=('~'+2), FLOAT, STR, COM_LINE, COM_BLOCK, TXT };
+	enum
+	{
+		INT=('~'+2), FLOAT, STR,
+		COM_LINE, COM_BLOCK, TXT
+	};
 	
 	arr <char> str;
 	int id;
-	
-	union value
-	{
-		char c; short s; int i;
-		long l; void* p;
-		float f; double d;
-	}
-	value;
+	int multiple;
+	Word ();
 };
 
-Word getword (FILE* stream);
+Word getword ();
 
 #endif

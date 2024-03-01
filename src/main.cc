@@ -1,11 +1,13 @@
-#include "trie.h"
-#include "words.h"
 #include <stdio.h>
 
-// map type names to int values
-Trie <char, 0, int, -1> typeids;
+#include "trie.h"
+#include "words.h"
+#include "symbol.h"
 
-Trie <char,0, int,-1> ids;
+// map type names to int values
+Trie <char, int> typeids;
+
+Trie <char, int> ids;
 
 int main (int argc, char** argv)
 {
@@ -14,7 +16,7 @@ int main (int argc, char** argv)
 	{
 		if (!strcmp(argv[1], "--help"))
 		{
-			printf ("mcatc [SRC_FILE]\nIf you leave out SRC_FILE, reads from standard input\n");
+			printf ("mcatc [--help | SRC_FILE]\nSRC_FILE defaults to standard input\n");
 			return 0;
 		}
 		in = fopen (argv[1], "r");
@@ -30,14 +32,16 @@ int main (int argc, char** argv)
 	int idIdx = Word::TXT + 1;
 	int wordct = 2000;
 	
+	source = in;
+	
 	for (int i = 0; 1; ++i)
 	{
-		Word w = getword (in);
+		Word w = getword ();
 		int id = w.id;
 		if (w.id == Word::TXT)
 		{
-			id = ids.find (w.str);
-			if (id == -1) id = idIdx, ids.insert (w.str, idIdx++);
+			int res = ids.find (w.str, 0, &id);
+			if (res == -1) id = idIdx, ids.insert (w.str, (char)0, idIdx++);
 		}
 		if (w.id == -1) break;
 		printf ("%i\t\t%s\n", id, (char*)w.str);

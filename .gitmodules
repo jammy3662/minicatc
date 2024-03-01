@@ -1,0 +1,3 @@
+[submodule "src/cext"]
+	path = src/cext
+	url = https://github.com/jammy3662/cext
