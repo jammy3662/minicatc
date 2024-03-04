@@ -9,11 +9,6 @@ const char* tripleOperators = ".<>";
 
 FILE* source;
 
-Word::Word ()
-{
-	multiple = 1;
-}
-
 Word getnumber (char first)
 {
 	Word w;
@@ -49,6 +44,8 @@ readone:
 	{
 		w.id = Word::FLOAT;
 		hasDecimal = 1;
+		w.str.append (c);
+		c = fgetc (source);
 		goto readone;
 	}
 	if (c == 'e' || c == 'E' &&	!hasExponent && !hasPrefix)
@@ -206,7 +203,7 @@ Word get2 (char op)
 	
 	if (op == next)
 		w.str.append (op),
-		w.multiple = 2;
+		w.multiple = 1;
 	else
 		ungetc (next, source);
 	
@@ -229,7 +226,7 @@ Word get3 (char op)
 	if (op == next == follow)
 		w.str.append (op),
 		w.str.append (op),
-		w.multiple = 3;
+		w.multiple = 2;
 	else
 		ungetc (follow, source),
 		ungetc (next, source);

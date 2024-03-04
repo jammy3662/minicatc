@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "trie.h"
 #include "words.h"
@@ -41,10 +42,10 @@ int main (int argc, char** argv)
 		if (w.id == Word::TXT)
 		{
 			int res = ids.find (w.str, 0, &id);
-			if (res == -1) id = idIdx, ids.insert (w.str, (char)0, idIdx++);
+			if (!res) id = idIdx, ids.insert (w.str, (char)0, idIdx++);
 		}
 		if (w.id == -1) break;
-		printf ("%i\t\t%s\n", id, (char*)w.str);
+		printf ("%u\t\t%s\n", (unsigned char)(id), (char*)w.str);
 	}
 	
 	fclose (in);

@@ -11,14 +11,13 @@ struct Word
 {
 	enum
 	{
-		INT=('~'+2), FLOAT, STR,
+		INT=(-'~'), FLOAT, STR,
 		COM_LINE, COM_BLOCK, TXT
 	};
 	
+	char id;
+	char multiple;
 	arr <char> str;
-	int id;
-	int multiple;
-	Word ();
 };
 
 Word getword ();
