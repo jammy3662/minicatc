@@ -7,17 +7,21 @@
 
 extern FILE* source;
 
+#define WordDOUBLEOPBit  ( (1 << sizeof (char)) << 0 )
+#define WordTRIPLEOPBit  ( (1 << sizeof (char)) << 1 )
+#define WordCharBits  (sizeof(char) * 8)
+#define WordINTBit  (1 << WordCharBits)
+
+namespace WordID  { enum
+{
+	INT = WordINTBit,  FLOAT,  STR,
+	COM_LINE,  COM_BLOCK,  TXT,  PLACEHOLDER,
+};}
+
 struct Word
 {
-	enum
-	{
-		INT=(-'~'), FLOAT, STR,
-		COM_LINE, COM_BLOCK, TXT
-	};
-	
-	char id;
-	char multiple;
-	arr <char> str;
+	short  id;
+	char*  str;
 };
 
 Word getword ();

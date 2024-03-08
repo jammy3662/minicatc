@@ -30,7 +30,7 @@ int main (int argc, char** argv)
 	}
 	char* str;
 	
-	int idIdx = Word::TXT + 1;
+	int idIdx = WordID::TXT + 1;
 	int wordct = 2000;
 	
 	source = in;
@@ -39,7 +39,7 @@ int main (int argc, char** argv)
 	{
 		Word w = getword ();
 		int id = w.id;
-		if (w.id == Word::TXT)
+		if (w.id == WordID::TXT)
 		{
 			int res = ids.find (w.str, 0, &id);
 			if (!res) id = idIdx, ids.insert (w.str, (char)0, idIdx++);

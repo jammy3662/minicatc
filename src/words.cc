@@ -4,7 +4,7 @@
 
 #include "words.h"
 
-const char* doubleOperators = "+=-/&|;";
+const char* doubleOperators = ".<>+=-/&|;";
 const char* tripleOperators = ".<>";
 
 FILE* source;
@@ -12,8 +12,10 @@ FILE* source;
 Word getnumber (char first)
 {
 	Word w;
-	w.id = Word::INT;
-	w.str.append (first);
+	w.id = WordID::INT;
+	
+	arr<char> str;
+	str.append (first);
 	
 	char c = fgetc (source);
 	
@@ -24,7 +26,7 @@ Word getnumber (char first)
 	switch (c)
 	{
 		case 'x': case 'o': case 'b':
-			w.str.append (c);
+			str.append (c);
 			c = fgetc (source);
 			hasPrefix = 1;
 			goto readone;
@@ -36,51 +38,54 @@ readone:
 	
 	if (c == '_' || isdigit (c))
 	{
-		w.str.append (c);
+		str.append (c);
 		c = fgetc (source);
 		goto readone;
 	}
 	if (c == '.' && !hasDecimal && !hasPrefix)
 	{
-		w.id = Word::FLOAT;
+		w.id = WordID::FLOAT;
 		hasDecimal = 1;
-		w.str.append (c);
+		str.append (c);
 		c = fgetc (source);
 		goto readone;
 	}
 	if (c == 'e' || c == 'E' &&	!hasExponent && !hasPrefix)
 	{
-		w.id = Word::FLOAT;
+		w.id = WordID::FLOAT;
 		hasExponent = 1;
-		w.str.append (c);
+		str.append (c);
 		c = fgetc (source);
 		goto readone;
 	}
 	if (c == '-' && hasExponent && !hasNegativeInExponent && !hasPrefix)
 	{
 		hasNegativeInExponent = 1;
-		w.str.append (c);
+		str.append (c);
 		c = fgetc (source);
 		goto readone;
 	}
 	if (c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'f' || c == 'F')
 	{
-		w.str.append (c);
+		str.append (c);
 		return w;
 	}
 	
 	// found a non-number character,
 	// put it back and end the wordt
 	ungetc (c, source);
-	w.str.append (0);
-	w.str.shrink();
+	str.append (0);
+	str.shrink();
+	w.str = str.ptr;
 	return w;
 }
 
 Word getstring (char delim)
 {
 	Word w;
-	w.id = Word::STR;
+	w.id = WordID::STR;
+	
+	arr<char> str;
 	
 	char escaped = 0;
 	
@@ -88,7 +93,7 @@ Word getstring (char delim)
 	goto nextc;
 	
 addc:
-	w.str.append (c);
+	str.append (c);
 nextc:
 	if (c == '\\' && !escaped)
 		escaped = 1;
@@ -99,147 +104,189 @@ nextc:
 		
 	if (c != delim || escaped) goto addc;
 	
-	w.str.append (0);
-	w.str.shrink();
+	str.append (0);
+	str.shrink();
+	w.str = str.ptr;
 	return w;
 }
 
 Word getalpha (char first)
 {
 	Word w;
-	w.id = Word::TXT;
-	w.str.append (first);
+	
+	arr<char> str;
+	str.append (first);
 	
 	char c = fgetc (source);
 	
-	while (c == '_' || isalpha (c) || isdigit (c))
+	// single underscore is treated as a special name
+	// essentially ignores the symbol outside of its declaration
+	if (c == '_')
 	{
-		w.str.append (c);
-		c = fgetc (source);
+		w.id = WordID::PLACEHOLDER;
+		goto update;
 	}
+	
+nextletter:
+
+	w.id = WordID::TXT;
+	
+update:
+
+	str.append (c);
+	c = fgetc (source);
+	
+	if (c == '_' || isalpha (c) || isdigit (c)) goto nextletter;
 	
 	ungetc (c, source);
 	
-	w.str.append (0);
-	w.str.shrink();
+	str.append (0);
+	str.shrink();
+	w.str = str.ptr;
 	return w;
 }
 
 Word getlinecom ()
 {
 	Word w;
-	w.id = Word::COM_LINE;
+	w.id = WordID::COM_LINE;
+	
+	arr<char> str;
 	
 	char c = ' ';
 	while (isblank(c) || iscntrl(c))
 	{
 		c = fgetc (source);
-		if (c == -1) { w.str.append(0); w.id = -1; return w; }
+		if (c == -1) { str.append(0); w.id = -1; return w; }
 	}
-	w.str.append (c);
+	str.append (c);
 	
 	char n = fgetc (source);
 	
 	while (!(c != '\\' && n == '\n'))
 	{
-		if (n == -1) { w.str.append(0); w.id = -1; return w; }
-		w.str.append (n);
+		if (n == -1) { str.append(0); w.id = -1; return w; }
+		str.append (n);
 		c = n;
 		n = fgetc (source);
 	}
 	
 	// remove trailing empty space
-	char* last = w.str.buf + w.str.count-1;
+	char* last = str.ptr + str.count-1;
 	while (isblank(*last) || iscntrl(*last))
-		last--, w.str.count--;
+		last--, str.count--;
 	
-	w.str.append(0);
-	w.str.shrink();
+	str.append(0);
+	str.shrink();
+	w.str = str.ptr;
 	return w;
 }
 
 Word getblockcom ()
 {
 	Word w;
-	w.id = Word::COM_BLOCK;
+	w.id = WordID::COM_BLOCK;
+	
+	arr<char> str;
 	
 	char c = ' ';
 	while (isblank(c) || iscntrl(c))
 	{
 		c = fgetc (source);
-		if (c == -1) { w.str.append(0); w.id = -1; return w; }
+		if (c == -1) { str.append(0); w.id = -1; return w; }
 	}
-	w.str.append (c);
+	str.append (c);
 	
 	char n = fgetc (source);
 	
 	while (!(c == '*' && n == '/'))
 	{
-		if (n == -1) { w.str.append(0); w.id = -1; return w; }
-		w.str.append (n);
+		if (n == -1) { str.append(0); w.id = -1; return w; }
+		str.append (n);
 		c = n;
 		n = fgetc (source);
 	}
 	
-	w.str.count -= 1; // remove the trailing '*' from '*/'
+	str.count -= 1; // remove the trailing '*' from '*/'
 	// remove trailing empty space
-	char* last = w.str.buf + w.str.count-1;
+	char* last = str.ptr + str.count-1;
 	while (isblank(*last) || iscntrl(*last))
-		last--, w.str.count--;
+		last--, str.count--;
 	
-	w.str.append(0);
-	w.str.shrink();
+	str.append(0);
+	str.shrink();
+	w.str = str.ptr;
 	return w;
 }
 
-Word get2 (char op)
+int get2 (char op, Word* _word_)
 {
 	Word w;
 	w.id = op;
-	w.str.append (op);
+	
+	arr<char> str;
+	str.append (op);
 	
 	char next = fgetc (source);
-	if (next == -1) { ungetc (next, source); w.str.append (0); w.str.shrink(); return w; }
+	if (next == -1) { ungetc (next, source); goto finish; }
 	
 	if (op == next)
-		w.str.append (op),
-		w.multiple = 1;
+		str.append (op),
+		w.id |= WordDOUBLEOPBit;
 	else
+	{
 		ungetc (next, source);
+		return 0;
+	}
 	
-	w.str.append (0);
-	w.str.shrink();
-	return w;
+finish:
+	str.append (0);
+	str.shrink();
+	w.str = str.ptr;
+	*_word_ = w;
+	return 1;
 }
 
-Word get3 (char op)
+int get3 (char op, Word* _word_)
 {
 	Word w;
 	w.id = op;
-	w.str.append (op);
 	
-	char next = fgetc (source);
-	if (next == -1) { ungetc (next, source); w.str.append (0); w.str.shrink(); return w; }
-	char follow = fgetc (source);
-	if (follow == -1) { ungetc (follow, source); w.str.append (0); w.str.shrink(); return w; }
+	arr<char> str;
+	str.append (op);
+	
+	char next, follow;
+	
+	next = fgetc (source);
+	if (next == -1) { ungetc (next, source); goto finish; }
+	follow = fgetc (source);
+	if (follow == -1) { ungetc (follow, source); goto finish; }
 	
 	if (op == next == follow)
-		w.str.append (op),
-		w.str.append (op),
-		w.multiple = 2;
+		str.append (op),
+		str.append (op),
+		w.id |= WordTRIPLEOPBit;
 	else
+	{
 		ungetc (follow, source),
 		ungetc (next, source);
-	
-	w.str.append (0);
-	w.str.shrink();
-	return w;
+		return 0;
+	}
+
+finish:
+	str.append (0);
+	str.shrink();
+	w.str = str.ptr;
+	*_word_ = w;
+	return 1;
 }
 
 Word getword ()
 {
 	Word w;
 	w.id = -1;
+	
+	arr<char> str;
 	
 	if (source == 0x0)
 	{
@@ -266,7 +313,7 @@ Word getword ()
 	}
 
 	w.id = c;
-	w.str.append (c);
+	str.append (c);
 	
 	if (c == '/')
 	{
@@ -275,14 +322,21 @@ Word getword ()
 		if (n == '*') return getblockcom ();
 		else ungetc (n, source);
 	}	
-{
-	const char *cc;
-		cc = strchr (doubleOperators, c);
-	if (cc) return get2 (*cc);
-		cc = strchr (tripleOperators, c);
-	if (cc) return get3 (*cc);
-}
-	w.str.append (0);
-	w.str.shrink ();
+
+	multiop:
+	{
+		Word test;
+		
+		const char *op;
+			op = strchr (tripleOperators, c);
+		if (op && get3 (*op, &test)) return test;
+		
+			op = strchr (doubleOperators, c);
+		if (op && get2 (*op, &test)) return test;
+	}
+
+	str.append (0);
+	str.shrink ();
+	w.str = str.ptr;
 	return w;
 }

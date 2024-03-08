@@ -2,95 +2,129 @@
 #define SYMBOL_DOT_H
 
 #include "words.h"
-#include "container.h"
-#include "trie.h"
 
-typedef unsigned long Nameid;
+struct Typeflags
+{
+	char
+	fconst      :  1,
+	flocal      :  1,
+	fstatic     :  1,
+	fsigned     :  1,
+	fshort      :  2,
+	flong       :  2,
+	fcextern    :  1,
+	fcregister  :  1,
+	fcrestrict  :  1,
+	fcvolatile  :  1,
+	
+	isFunc      :  1,
+	isOperator  :  1;
+};
 
-// Typeid is essentially a "Type pointer"
-typedef unsigned long Typeid;
-enum TYPEID
+struct Typeid
+{
+	typedef unsigned long ID;
+	
+	ID  id;	
+	Typeflags  flags;
+	
+	operator ID () { return id; }
+};
+
+namespace Builtin  { enum
 {
 	NONE = 0,
-	VAR, FUNC, ALIAS, STRUCT, ENUM,
-	INT = 1, BIT, CHAR, BYTE, SHORT, LONG,
-	LONGLONG, FLOAT, DOUBLE, LONGDOUBLE, PTR,
+	MODULE,  FUNC,  STRUCT,  ENUM,  ALIAS,
+	INT,  BIT,  CHAR,  BYTE,  SHORT,  LONG,
+	LONGLONG,  FLOAT,  DOUBLE,  LONGDOUBLE,  PTR,
 };
+	const Typeid::ID tpOff = (Builtin::PTR + 1);
+}
+
 union Integral
 {
-	int i; char c; short s; long l;
-	long long ll; float f; double d; long double ld;
+	int i;  char c;  short s;  long l;
+	long long ll;  float f;  double d;  long double ld;
 	void* ptr;
 };
 
-Typeid getType (Typeid* signature);
-Typeid* getFields (Typeid type);
-
-enum Opcode
+namespace Opcode  { enum
 {
-	ADD, SUB,	POS, NEG,
-	MUL, DIV, MOD,
-	INC, DEC,
-	EQ, NEQ, GREATER, LESS,
-	GREQ, LEQ,
-	AND, OR, NOT,
-	BAND, BOR, BNOT, BXOR,
-	LSHIFT, RSHIFT,
-	ASSIGN,
-	MEMBER, CALL, INDEX, ADDRESS,
-	ADR = BXOR, INDIR = MUL,
-	COMMA,
+	x2 = WordDOUBLEOPBit,
+	x3 = WordTRIPLEOPBit,
+	
+	NOOP = 0,
+	
+	ASSIGN  = ('='),      /*  set value of symbol    */
+	MEMBER  = ('.'),      /*  get symbol from scope  */
+	ADROF   = ('&'),      /*  c address of           */
+	ADR     = ('^'),      /*  cat pointer            */
+	INDIR   = ('*'),      /*  c pointer              */
+	COMMA   = (','),      /*  list separator         */
+	SCOLON  = (';'),      /*  expression separator   */
+	TAIL2   = ('.'|x2),   /*  tail w/ 2 periods ..   */
+	TAIL3   = ('.'|x3),   /*  tail w/ 3 periods ...  */
+	CALL    = ('('*')'),  /*  function call          */
+	INDEX   = ('['*']'),  /*  array subscript        */
+	ADD     = ('+'),      SUB   = ('-'),
+	MUL     = ('*'),      DIV   = ('/'),      MOD  = ('%'),
+	INC     = ('+'|x2),   DEC   = ('-'|x2),
+	EQ      = ('='|x2),   MORE  = ('>'),      LESS = ('<'),
+	NEQ     = ('!'*'='),  GREQ  = ('>'*'='),  LEQ = ('<'*'='),
+	AND     = ('&'|x2),   OR    = ('|'|x2),   NOT     = ('!'),
+	BAND    = ('&'),      BOR   = ('|'),      XOR = ('^'),
+	LSHF    = ('<'|x2),   RSHF  = ('>'|x2),
+	LROT    = ('<'|x3),   RROT  = ('>'|x3),
+	LEFT    = ('<'*'-'),  RIGHT = ('-'*'>'), 
+};}
+
+// recursive structure for all values, expressions, and operations
+struct Value
+{
+	Typeid  type;
+	Integral  literal;  // constant value for integral types (float, int, etc)
+	int  operation;  // when unset, value is 'returned' from expression
+	// refer to constants in 'Opcode'
+	
+	Value*  left;
+	Value*  right;
 };
 
-// recursive structure for all operations
-// these collectively form an expression or block of code
-struct Expr
+struct Var
 {
-	Opcode opcode;
-	Typeid result;
-	Integral value; // static values like 1+2 for integral operations
+	Typeid  type;
+	Value*  initial;
 	
-	Expr* front;
-	Expr* end;
+	char*  name;
 };
 
-struct Expr;
+struct Scope;
 
-// declaration of a variable, function,
-// method, or operator overload
-struct Symbol
+struct Func
 {
-	struct
-	{
-		char
-		fconst : 1,
-		flocal : 1,
-		fstatic : 1,
-		fsigned : 1,
-		fshort : 2,
-		flong: 2,
-		fcextern :	1,
-		fcregister: 1,
-		fcrestrict: 1,
-		fcvolatile : 1;
-	}
-	flags;
+	int  op;
 	
-	Typeid type; // variable type or return type
+	Typeid  ret;  // return type
+	Typeid  args;  // arguments / function signature
+	Typeid  target;  // type-specific functions
 	
-	Typeid args; // function signature (arguments)
-	Word op; // operator overloads
-	
-	int count; // array size
-	
-	Expr*	expression; // function body or variable value
+	Scope*  body;
+
+	char*  name;
 };
 
-struct Scope
+struct Operator
 {
-	Trie <char, Typeid> types;
-	Trie <char, Symbol> symbols;
+	int operation; // constant from 'Opcode'
 	
+	Typeid operands [3]; // 3rd char is null terminator
+	
+	Scope* body;
 };
+
+int getTypeid (Typeid* fields, Typeid* aID);
+int getFields (Typeid id, Typeid** aFields);
+
+int getType (Typeid* _type_);
 
 #endif
