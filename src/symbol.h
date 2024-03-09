@@ -2,6 +2,7 @@
 #define SYMBOL_DOT_H
 
 #include "words.h"
+#include "table.h"
 
 struct Typeflags
 {
@@ -78,6 +79,12 @@ namespace Opcode  { enum
 	LEFT    = ('<'*'-'),  RIGHT = ('-'*'>'), 
 };}
 
+typedef char** Name;
+
+// ====----====----====----====----====----====----
+
+struct Section;
+
 // recursive structure for all values, expressions, and operations
 struct Value
 {
@@ -92,39 +99,86 @@ struct Value
 
 struct Var
 {
-	Typeid  type;
-	Value*  initial;
+	Value  value;
 	
 	char*  name;
 };
 
-struct Scope;
+struct Enum
+{
+	Trie <char, Var>  constants;
+	
+	char*  name;
+};
+
+struct Section;
 
 struct Func
 {
-	int  op;
-	
 	Typeid  ret;  // return type
 	Typeid  args;  // arguments / function signature
 	Typeid  target;  // type-specific functions
 	
-	Scope*  body;
+	Section*  body;
+	arr < Value >  expressions;
 
 	char*  name;
 };
 
+// a user-defined operation is internally a function
+// with two arguments: the left & right operand
 struct Operator
 {
-	int operation; // constant from 'Opcode'
+	int  opcode; // constant from 'Opcode'
 	
-	Typeid operands [3]; // 3rd char is null terminator
+	Typeid  left, right;
 	
-	Scope* body;
+	Func*  body;
 };
 
-int getTypeid (Typeid* fields, Typeid* aID);
-int getFields (Typeid id, Typeid** aFields);
+struct Section
+{
+	// if fields = 0, this is a standalone set of symbols, like a namespace
+	// otherwise, it is a struct with 'fields' instantiated as an object
+	Typeid fields;
+	
+	// using a table so that a typeid can retrieve
+	// the string of typeids that created it (reverse lookup)
+	// v  v  v  v
+	Table <Typeid>  types; // type signatures
+	
+	Trie <char, Typeid> typedefs; // named types
+	Trie <char, Enum>  enums; // map names to values / expressions
+	
+	Trie <char, Var>  vars;
+	Trie <char, Value>  expressions;
+	
+	Trie <char, Func>  functions;
+	Trie <char, Section*>  sections;
+	
+	// for compile metadata
+	typedef int Errc;
+	arr <Errc> errors;
+	
+	// TODO: type flags might be unneccessary at this module / struct def level
+	Typeflags flags;
+	
+	char* name;
+};
 
-int getType (Typeid* _type_);
+struct Program
+{
+	Section global;
+	
+	// user defined operator behaviors
+	// only one set of 'operator overloads' per program
+	arr <Operator> operators;
+	
+	char* name;
+};
+
+// ====----====----====----====----====----====----
+
+Program getProgram ();
 
 #endif

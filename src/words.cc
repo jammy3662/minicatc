@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "words.h"
+#include "container.h"
 
 const char* doubleOperators = ".<>+=-/&|;";
 const char* tripleOperators = ".<>";

@@ -3,8 +3,6 @@
 
 #include <stdio.h>
 
-#include "container.h"
-
 extern FILE* source;
 
 #define WordDOUBLEOPBit  ( (1 << sizeof (char)) << 0 )

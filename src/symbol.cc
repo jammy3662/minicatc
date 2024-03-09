@@ -1,40 +1,25 @@
 #include "symbol.h"
 
-#include "trie.h"
-#include "container.h"
+Section* scope;
 
-
-
-struct Symbol
+Program getProgram ()
 {
-	int type;
-	int idx;
-};
-
-// user defined operator behaviors
-// aka 'operator overloading'
-arr <Operator> operations;
-
-struct Scope
-{
-	Trie <char, Typeid> types;
+	Program ret;
 	
-	Trie <char, Var> objects;
-	Trie <char, Func> functions;
-};
+	// start in global scope
+	scope = &ret.global;
+	
+	
+	
+	return ret;
+}
 
-static
-Symbol global;
-Symbol* scope = &global;
+Section getModule ()
+{
+	
+}
 
-typedef char** Name;
-
-arr <Typeid*>
-types;
-
-// identifies a type signature with a number
-Trie <Typeid, Typeid>
-typetable;
+/*
 
 int getName (Name* nameRef, Word* first = 0x0)
 {
@@ -113,3 +98,5 @@ int getFields (Typeid t, Typeid** aFields)
 	
 	return 0;
 }
+
+*/
