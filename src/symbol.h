@@ -29,6 +29,9 @@ struct Typeid
 	ID  id;	
 	Typeflags  flags;
 	
+	// akin to the 'name' field of most other symbols
+	Typeid* fields;
+	
 	operator ID () { return id; }
 };
 
@@ -95,6 +98,10 @@ struct Value
 	
 	Value*  left;
 	Value*  right;
+	
+	// in mostly all cases, values are unnamed
+	// variables are used for named storage
+	char* name;
 };
 
 struct Var
@@ -132,8 +139,31 @@ struct Operator
 	int  opcode; // constant from 'Opcode'
 	
 	Typeid  left, right;
+	Typeid  result;
 	
 	Func*  body;
+};
+
+// a wrapper for all valid definitions in a scope
+struct Symbol
+{
+	enum { END=(-1), HEADER, TYPE, TYPEDEF, ENUM, VAR, VALUE, FUNC, SECTION };
+	// identifies which type is being stored currently
+	int symbol;
+	
+	typedef struct { Typeid type; char* name; } Typedef;
+	
+	union
+	{
+		Typeid  type;
+		Typedef  typenm;
+		Enum*  enm;
+		Var  var;
+		Value  value;
+		Func*  function;
+		Section*  section;
+		char* header;
+	};
 };
 
 struct Section
@@ -164,6 +194,8 @@ struct Section
 	Typeflags flags;
 	
 	char* name;
+
+	void insert (Symbol);
 };
 
 struct Program
@@ -180,5 +212,6 @@ struct Program
 // ====----====----====----====----====----====----
 
 Program getProgram ();
+
 
 #endif

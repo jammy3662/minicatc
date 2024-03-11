@@ -31,21 +31,25 @@ int main (int argc, char** argv)
 	char* str;
 	
 	int idIdx = WordID::TXT + 1;
-	int wordct = 2000;
 	
 	source = in;
 	
-	for (int i = 0; 1; ++i)
+	for (int i = 0; (1); ++i)
 	{
 		Word w = getword ();
 		int id = w.id;
+		
 		if (w.id == WordID::TXT)
 		{
-			int res = ids.find (w.str, 0, &id);
-			if (!res) id = idIdx, ids.insert (w.str, (char)0, idIdx++);
+			int err;
+			id = ids.find (w.str, 0, &err);
+			if (err)
+				id = idIdx,
+				ids.insert (w.str, (char)0, idIdx++);
 		}
+		
 		if (w.id == -1) break;
-		printf ("%u\t\t%s\n", (unsigned char)(id), (char*)w.str);
+		printf ("%u\t\t%s\n", (unsigned short)(id), (char*)w.str);
 	}
 	
 	fclose (in);

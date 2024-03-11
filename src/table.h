@@ -12,10 +12,19 @@ struct Table
 	Trie <K, I>  index;
 	arr <K*>  contents;
 	
-	K* key (I value);
 	I val (K* key);
+	K* key (I value);
 	
 	K*& operator [] (I idx) { return contents [idx]; }
 };
+
+#ifndef TABLE_DOT_H_HEADER_ONLY
+#define TABLE_DOT_H_HEADER_ONLY
+
+#include "table.cc.h"
+
+#endif
+
+
 
 #endif

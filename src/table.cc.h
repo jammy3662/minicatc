@@ -1,3 +1,6 @@
+#ifndef TABLE_DOT_H_IMPL
+#define TABLE_DOT_H_IMPL
+
 #include "table.h"
 
 template <typename K>
@@ -12,11 +15,12 @@ Table<int>::I Table<K>::val (K* key)
 	I res;
 	K end = {};
 	
-	int find = index.find (key, end, &res);
+	int err;
+	res = index.find (key, end, &err);
 	
 	// if not present, add to
 	// list & store its index
-	if (find == 0)
+	if (err)
 	{
 		res = contents.count;
 		index.insert (key, end, res);
@@ -25,3 +29,5 @@ Table<int>::I Table<K>::val (K* key)
 	
 	return res;
 }
+
+#endif

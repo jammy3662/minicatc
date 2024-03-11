@@ -135,10 +135,14 @@ nextletter:
 update:
 
 	str.append (c);
-	c = fgetc (source);
 	
-	if (c == '_' || isalpha (c) || isdigit (c)) goto nextletter;
+	if (c == '_' || isalpha (c) || isdigit (c))
+	{
+		c = fgetc (source);
+		goto nextletter;
+	}
 	
+	str.count--;
 	ungetc (c, source);
 	
 	str.append (0);

@@ -1,23 +1,67 @@
 #include "symbol.h"
 
-Section* scope;
+Symbol getSymbol (Section* scope);
+
+void Section::insert (Symbol s)
+{
+switch (s.symbol)
+	{
+		case Symbol::HEADER:
+			this->name = s.header;
+		
+		case Symbol::TYPE:
+			types.val (s.type.fields);
+			break;
+		
+		case Symbol::TYPEDEF:
+			typedefs.insert (s.typenm.name, s.typenm.type);
+			break;
+		
+		case Symbol::ENUM:
+			enums.insert (s.enm->name, *s.enm);
+			break;
+		
+		case Symbol::VAR:
+			vars.insert (s.var.name, s.var);
+			break;
+		
+		case Symbol::VALUE:
+			expressions.insert (s.value.name, s.value);
+			break;
+		
+		case Symbol::FUNC:
+			functions.insert (s.function->name, *s.function);
+			break;
+		
+		case Symbol::SECTION:
+			sections.insert (s.section->name, s.section);
+			break;
+	}
+}
+
+Symbol getSymbol (Section* scope)
+{
+	Symbol s;
+	
+	if (scope != 0x0)	scope->insert(s);
+	return s;
+}
 
 Program getProgram ()
 {
 	Program ret;
 	
-	// start in global scope
-	scope = &ret.global;
+	// there is no outer scope at the global level
+	Symbol s = {0};
 	
-	
+	while (s.symbol != Symbol::END)
+	{
+		s = getSymbol (& ret.global);
+	}
 	
 	return ret;
 }
 
-Section getModule ()
-{
-	
-}
 
 /*
 
