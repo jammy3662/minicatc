@@ -29,7 +29,8 @@ struct Typeid
 	ID  id;	
 	Typeflags  flags;
 	
-	// akin to the 'name' field of most other symbols
+	char* name;
+	// alternative to the 'name' field for lookup
 	Typeid* fields;
 	
 	operator ID () { return id; }
@@ -157,10 +158,10 @@ struct Symbol
 	{
 		Typeid  type;
 		Typedef  typenm;
-		Enum*  enm;
+		Enum  enm;
 		Var  var;
 		Value  value;
-		Func*  function;
+		Func  function;
 		Section*  section;
 		char* header;
 	};
@@ -196,6 +197,7 @@ struct Section
 	char* name;
 
 	void insert (Symbol);
+	Symbol get (char* name, int*_err_= 0);
 };
 
 struct Program

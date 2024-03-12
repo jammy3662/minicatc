@@ -1,5 +1,7 @@
 #include "symbol.h"
 
+Section* global;
+
 Symbol getSymbol (Section* scope);
 
 void Section::insert (Symbol s)
@@ -18,7 +20,7 @@ switch (s.symbol)
 			break;
 		
 		case Symbol::ENUM:
-			enums.insert (s.enm->name, *s.enm);
+			enums.insert (s.enm.name, s.enm);
 			break;
 		
 		case Symbol::VAR:
@@ -30,18 +32,64 @@ switch (s.symbol)
 			break;
 		
 		case Symbol::FUNC:
-			functions.insert (s.function->name, *s.function);
+			functions.insert (s.function.name, s.function);
 			break;
 		
 		case Symbol::SECTION:
 			sections.insert (s.section->name, s.section);
 			break;
+		
+		case Symbol::END:
+			/* finalize section; nothing to insert */
+			break;
+		
+		default:
+			fprintf (stderr, "Found an unknown symbol \t %p \n", &s);
+			break;
 	}
+}
+
+Symbol Section::get (char* name, int* err)
+{
+	Symbol res;
+	
+	Section* scope = this;
+
+search:
+	Typeid tp = scope->typedefs.find (name, err);
+	res.typenm.name = tp.name;
+	res.typenm.type = tp;
+	if (no *err) return res;
+	
+	res.enm = scope->enums.find (name, err);
+	if (no *err) return res;
+	
+	res.var = scope->vars.find (name, err);
+	if (no *err) return res;
+	
+	res.value = scope->expressions.find (name, err);
+	if (no *err) return res;
+	
+	res.function = scope->functions.find (name, err);
+	if (no *err) return res;
+	
+	res.section = scope->sections.find (name, err);
+	if (no *err) return res;
+	
+	// look in global namespace if not found locally
+	if (scope == this) scope = global;
+	goto search;
+	
+	return res;
 }
 
 Symbol getSymbol (Section* scope)
 {
 	Symbol s;
+	
+	Word w;
+	w = getword ();
+	
 	
 	if (scope != 0x0)	scope->insert(s);
 	return s;
@@ -50,14 +98,14 @@ Symbol getSymbol (Section* scope)
 Program getProgram ()
 {
 	Program ret;
+	global = &ret.global;
 	
 	// there is no outer scope at the global level
 	Symbol s = {0};
 	
+	// populate the symbol tree
 	while (s.symbol != Symbol::END)
-	{
 		s = getSymbol (& ret.global);
-	}
 	
 	return ret;
 }

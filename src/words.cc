@@ -15,7 +15,7 @@ Word getnumber (char first)
 	Word w;
 	w.id = WordID::INT;
 	
-	arr<char> str;
+	arr<char> str = {};
 	str.append (first);
 	
 	char c = fgetc (source);
@@ -43,7 +43,7 @@ readone:
 		c = fgetc (source);
 		goto readone;
 	}
-	if (c == '.' && !hasDecimal && !hasPrefix)
+	if (c == '.' && not hasDecimal && not hasPrefix)
 	{
 		w.id = WordID::FLOAT;
 		hasDecimal = 1;
@@ -51,7 +51,7 @@ readone:
 		c = fgetc (source);
 		goto readone;
 	}
-	if (c == 'e' || c == 'E' &&	!hasExponent && !hasPrefix)
+	if (c == 'e' || c == 'E' &&	not hasExponent && not hasPrefix)
 	{
 		w.id = WordID::FLOAT;
 		hasExponent = 1;
@@ -59,7 +59,7 @@ readone:
 		c = fgetc (source);
 		goto readone;
 	}
-	if (c == '-' && hasExponent && !hasNegativeInExponent && !hasPrefix)
+	if (c == '-' && hasExponent && not hasNegativeInExponent && not hasPrefix)
 	{
 		hasNegativeInExponent = 1;
 		str.append (c);
@@ -86,7 +86,7 @@ Word getstring (char delim)
 	Word w;
 	w.id = WordID::STR;
 	
-	arr<char> str;
+	arr<char> str = {};
 	
 	char escaped = 0;
 	
@@ -96,7 +96,7 @@ Word getstring (char delim)
 addc:
 	str.append (c);
 nextc:
-	if (c == '\\' && !escaped)
+	if (c == '\\' && not escaped)
 		escaped = 1;
 	else escaped = 0;
 	
@@ -115,7 +115,7 @@ Word getalpha (char first)
 {
 	Word w;
 	
-	arr<char> str;
+	arr<char> str = {};
 	str.append (first);
 	
 	char c = fgetc (source);
@@ -156,7 +156,7 @@ Word getlinecom ()
 	Word w;
 	w.id = WordID::COM_LINE;
 	
-	arr<char> str;
+	arr<char> str = {};
 	
 	char c = ' ';
 	while (isblank(c) || iscntrl(c))
@@ -168,7 +168,7 @@ Word getlinecom ()
 	
 	char n = fgetc (source);
 	
-	while (!(c != '\\' && n == '\n'))
+	while (not (c != '\\' && n == '\n'))
 	{
 		if (n == -1) { str.append(0); w.id = -1; return w; }
 		str.append (n);
@@ -192,7 +192,7 @@ Word getblockcom ()
 	Word w;
 	w.id = WordID::COM_BLOCK;
 	
-	arr<char> str;
+	arr<char> str = {};
 	
 	char c = ' ';
 	while (isblank(c) || iscntrl(c))
@@ -204,7 +204,7 @@ Word getblockcom ()
 	
 	char n = fgetc (source);
 	
-	while (!(c == '*' && n == '/'))
+	while (not (c == '*' && n == '/'))
 	{
 		if (n == -1) { str.append(0); w.id = -1; return w; }
 		str.append (n);
@@ -229,7 +229,7 @@ int get2 (char op, Word* _word_)
 	Word w;
 	w.id = op;
 	
-	arr<char> str;
+	arr<char> str = {};
 	str.append (op);
 	
 	char next = fgetc (source);
@@ -257,7 +257,7 @@ int get3 (char op, Word* _word_)
 	Word w;
 	w.id = op;
 	
-	arr<char> str;
+	arr<char> str = {};
 	str.append (op);
 	
 	char next, follow;
@@ -291,7 +291,7 @@ Word getword ()
 	Word w;
 	w.id = -1;
 	
-	arr<char> str;
+	arr<char> str = {};
 	
 	if (source == 0x0)
 	{
