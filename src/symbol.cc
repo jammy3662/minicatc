@@ -95,17 +95,28 @@ Symbol getSymbol (Section* scope)
 	return s;
 }
 
+Section getSection ()
+{
+	Section sc = {};
+	Symbol s = {};
+	
+	// populate the symbol tree one by one
+	// this may branch into recursive calls
+	while (s.symbol != Symbol::END)
+	{	
+		s = getSymbol (& sc);
+	}
+	return sc;
+}
+
 Program getProgram ()
 {
 	Program ret;
 	global = &ret.global;
 	
-	// there is no outer scope at the global level
-	Symbol s = {0};
+	ret.global = getSection();
 	
-	// populate the symbol tree
-	while (s.symbol != Symbol::END)
-		s = getSymbol (& ret.global);
+	
 	
 	return ret;
 }
