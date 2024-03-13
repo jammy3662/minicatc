@@ -4,46 +4,49 @@
 #include "words.h"
 #include "table.h"
 
-struct Typeflags
+typedef unsigned long Typeid;
+
+struct Type
+{
+	Typeid  id;	
+	struct
 {
 	char
 	fconst      :  1,
 	flocal      :  1,
 	fstatic     :  1,
+	fextern     :  1,
 	fsigned     :  1,
 	fshort      :  2,
 	flong       :  2,
-	fcextern    :  1,
+	
 	fcregister  :  1,
 	fcrestrict  :  1,
-	fcvolatile  :  1,
-	
-	isFunc      :  1,
-	isOperator  :  1;
+	fcvolatile  :  1;
 };
-
-struct Typeid
-{
-	typedef unsigned long ID;
-	
-	ID  id;	
-	Typeflags  flags;
 	
 	char* name;
-	// alternative to the 'name' field for lookup
-	Typeid* fields;
+	Type* fields;
 	
-	operator ID () { return id; }
+	char* printf ();
+	
+	operator Typeid () {return id;}
 };
 
-namespace Builtin  { enum
+namespace Types  { enum
 {
 	NONE = 0,
-	MODULE,  FUNC,  STRUCT,  ENUM,  ALIAS,
+	SYMBOL,  MODULE,  FUNC,  STRUCT,  ENUM,  ALIAS,
 	INT,  BIT,  CHAR,  BYTE,  SHORT,  LONG,
 	LONGLONG,  FLOAT,  DOUBLE,  LONGDOUBLE,  PTR,
 };
-	const Typeid::ID tpOff = (Builtin::PTR + 1);
+	const Typeid tpOff = (Types::PTR + 1);
+}
+
+inline
+char isBuiltin (Typeid type)
+{
+	return (type <= Types::PTR);
 }
 
 union Integral
@@ -83,52 +86,93 @@ namespace Opcode  { enum
 	LEFT    = ('<'*'-'),  RIGHT = ('-'*'>'), 
 };}
 
-typedef char** Name;
-
 // ====----====----====----====----====----====----
 
 struct Section;
+struct Symbol;
+struct Var;
 
-// recursive structure for all values, expressions, and operations
-struct Value
+struct Expr; // expression
+
+enum SymbolT
 {
-	Typeid  type;
-	Integral  literal;  // constant value for integral types (float, int, etc)
-	int  operation;  // when unset, value is 'returned' from expression
-	// refer to constants in 'Opcode'
+	END=(-1), NONE=(0),
 	
-	Value*  left;
-	Value*  right;
-	
-	// in mostly all cases, values are unnamed
-	// variables are used for named storage
-	char* name;
+	OBJ, MODULE, ALIAS, ENUM, FUNC,
 };
 
-struct Var
+struct Symbol
 {
-	Value  value;
-	
+	int  kind; // of SymbolT, not to be confused with a datatype (ex. int)
 	char*  name;
+	
+	Trie <char, Symbol*>  fields;
+	
+	Symbol* get (char* name);
+	Symbol& operator / (char* name) {return *get(name);}
+};
+
+// a typed chunk of memory
+struct Object: Symbol
+{
+	Type type;
+};
+
+// a constant / handwritten value
+// the result of an expression (another value)
+// a named variable from the code
+struct Var: Object
+{
+	char  isLiteral: 1; // structs can also be written as a literal
+	char  isObject: 1;
+	
+	union
+{
+	Integral  constant;
+	Expr*  expression;
+	Object*  object;
+}
+	value;
 };
 
 struct Enum
 {
-	Trie <char, Var>  constants;
-	
-	char*  name;
+	Trie <char, Var>  values;
 };
+
+struct Func: Object
+{
+	Type  args, target;
+	
+	Expr*  body;
+};
+
+// recursive structure for all values, expressions, and operations
+struct Expr: Object
+{
+	Type  type;
+	
+	int  operation;
+// refer to constants in 'Opcode'
+	
+	Var  left;
+	Var  right;
+	
+	Var evaluate ();
+};
+
+
 
 struct Section;
 
 struct Func
 {
-	Typeid  ret;  // return type
-	Typeid  args;  // arguments / function signature
-	Typeid  target;  // type-specific functions
+	Type  ret;  // return type
+	Type  args;  // arguments / function signature
+	Type  target;  // type-specific functions
 	
 	Section*  body;
-	arr < Value >  expressions;
+	arr <Value>  expressions;
 
 	char*  name;
 };
@@ -139,65 +183,44 @@ struct Operator
 {
 	int  opcode; // constant from 'Opcode'
 	
-	Typeid  left, right;
-	Typeid  result;
+	Type  left, right;
+	Type  result;
 	
 	Func*  body;
 };
 
-// a wrapper for all valid definitions in a scope
-struct Symbol
+union Symbol::Ref
 {
-	enum { END=(-1), HEADER, TYPE, TYPEDEF, ENUM, VAR, VALUE, FUNC, SECTION };
-	// identifies which type is being stored currently
-	int symbol;
-	
-	typedef struct { Typeid type; char* name; } Typedef;
-	
-	union
-	{
-		Typeid  type;
-		Typedef  typenm;
-		Enum  enm;
-		Var  var;
-		Value  value;
-		Func  function;
-		Section*  section;
-		char* header;
-	};
+	Type  type;  // datatype lookup by name
+	Enum  enm;  // map names to values / expressions
+	Symbol alias; // handle to another symbol
+	Var  var;  // stored value
+	Value  value;  // expression
+	Func  function;  // expression with inputs
+	Section*  section;  // module or struct
+	char* header;
 };
 
 struct Section
 {
-	// if fields = 0, this is a standalone set of symbols, like a namespace
-	// otherwise, it is a struct with 'fields' instantiated as an object
-	Typeid fields;
+	// if static, this is a standalone set of symbols, like a namespace
+	// otherwise, it is a struct with fields instantiated as an object
+	char isStatic;
 	
-	// using a table so that a typeid can retrieve
-	// the string of typeids that created it (reverse lookup)
-	// v  v  v  v
-	Table <Typeid>  types; // type signatures
+	Type  fields;
 	
-	Trie <char, Typeid> typedefs; // named types
-	Trie <char, Enum>  enums; // map names to values / expressions
-	
-	Trie <char, Var>  vars;
-	Trie <char, Value>  expressions;
-	
-	Trie <char, Func>  functions;
-	Trie <char, Section*>  sections;
+	Trie  <char, Symbol>  index;
+	Trie  <Type, Type*>  typesigs;
 	
 	// for compile metadata
 	typedef int Errc;
-	arr <Errc> errors;
-	
-	// TODO: type flags might be unneccessary at this module / struct def level
-	Typeflags flags;
-	
-	char* name;
+	arr  <Errc>  errors;
 
-	void insert (Symbol);
-	Symbol get (char* name, int*_err_= 0);
+	char*  name;
+
+	Symbol insert (Symbol);
+	Symbol get (char* name);
+	Symbol lookup (char** name);
 };
 
 struct Program

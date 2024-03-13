@@ -1,85 +1,147 @@
 #include "symbol.h"
 
-Section* global;
+Symbol Value::get (char* name);
+Symbol Enum::get (char* name);
+Symbol Section::get (char* name);
 
-Symbol getSymbol (Section* scope);
-
-void Section::insert (Symbol s)
+// TODO
+Symbol Value::get (char* name)
 {
-switch (s.symbol)
+	Symbol res = {0};
+	
+	if (isTmp)
 	{
-		case Symbol::HEADER:
-			this->name = s.header;
-		
-		case Symbol::TYPE:
-			types.val (s.type.fields);
-			break;
-		
-		case Symbol::TYPEDEF:
-			typedefs.insert (s.typenm.name, s.typenm.type);
-			break;
-		
-		case Symbol::ENUM:
-			enums.insert (s.enm.name, s.enm);
-			break;
-		
-		case Symbol::VAR:
-			vars.insert (s.var.name, s.var);
-			break;
-		
-		case Symbol::VALUE:
-			expressions.insert (s.value.name, s.value);
-			break;
-		
-		case Symbol::FUNC:
-			functions.insert (s.function.name, s.function);
-			break;
-		
-		case Symbol::SECTION:
-			sections.insert (s.section->name, s.section);
-			break;
-		
-		case Symbol::END:
-			/* finalize section; nothing to insert */
-			break;
-		
-		default:
-			fprintf (stderr, "Found an unknown symbol \t %p \n", &s);
-			break;
+		fprintf (stderr, "%s is part of a temporary object and can't be modified\n", name);
+		return res;
 	}
+	
+	if (isBuiltin (type.id))
+	{
+		fprintf (stderr, "%s doesn't store data\n", type.printf());
+		return res;
+	}
+	
+	return variable;
 }
 
-Symbol Section::get (char* name, int* err)
+Symbol Enum::get (char* name)
 {
-	Symbol res;
+	Symbol res = {0};
 	
-	Section* scope = this;
+	int err = 0;
+	Value* value;
+	
+	value = values.find (name, err);
+	if (err) return res;
+	
+	res.symbol = Symbol::VALUE,
+	res.ref = value;
+	
+	return res;
+}
 
-search:
-	Typeid tp = scope->typedefs.find (name, err);
-	res.typenm.name = tp.name;
-	res.typenm.type = tp;
-	if (no *err) return res;
+Symbol Section::get (char* name)
+{
+	Symbol res = {0};
 	
-	res.enm = scope->enums.find (name, err);
-	if (no *err) return res;
+	res = index.find (name, err);
+	if (err)	res.symbol = Symbol::NONE;
 	
-	res.var = scope->vars.find (name, err);
-	if (no *err) return res;
+	return res;
+}
+
+static
+Program* program;
+
+Program getProgram ();
+Symbol getSymbol (Section* scope);
+
+char* Type::printf ()
+{
+	if (name != 0) return name;
 	
-	res.value = scope->expressions.find (name, err);
-	if (no *err) return res;
+	arr <char> str = {0};
 	
-	res.function = scope->functions.find (name, err);
-	if (no *err) return res;
+	str.append(0);
+	return str;
+}
+
+Symbol* Section::insert (Symbol s)
+{
+	symbols.append (s);
 	
-	res.section = scope->sections.find (name, err);
-	if (no *err) return res;
+	// do pointer math after append call
+	// reallocation might move the data
+	return symbols.ptr + symbols.count - 1;
+}
+
+
+
+Symbol Section::lookup (char** name, int* err)
+{
+	Symbol res = {0};
+	Section* scope = this;
 	
-	// look in global namespace if not found locally
-	if (scope == this) scope = global;
-	goto search;
+	char** loc = name;
 	
+	res = scope->get (*loc);
+
+	if (no res.symbol)
+		res = program->global.get (*loc);
+
+	if (no res.symbol)
+	{
+		fprintf (stderr, "Can't find %s in %s\n", *loc, this->name);
+		return res;
+	}
+	
+	loc++; // already tested the first name above
+	
+	for (; *loc != 0; ++loc)
+	{
+		res = scope->get (*loc);
+		if (no res.symbol)
+		{
+			fprintf (stderr, "%s is a %s and does not store data\n", *loc, this->name);
+			return res;
+		}
+		
+		int t = res->symbol;
+		
+		if (t == Symbol::SECTION)
+		{
+			if (res->section->isStatic)
+				scope = res->section;
+			else
+			{
+				fprintf (stderr, "%s is a type, not a variable\n", *loc);
+				*err = 2;
+				return res;
+			}
+		}
+		else
+		if (t == Symbol::VAR)
+		{
+			if (not isBuiltin (res->type.id))
+			
+		}
+		else
+		if (t == Symbol::VALUE)
+		
+		if (not (t == Symbol::VAR || t == Symbol::VALUE
+		    || t == Symbol::SECTION))
+		{
+			*err = 2;
+			fprintf (stderr, "%s does not store data\n", *loc);
+			return res;
+		}
+		
+		
+	}
+	
+notfound:
+	*err = 1;
+	fprintf (stderr, "Unknown name '%s' in '%s'\n", *loc, this->name);
 	return res;
 }
 
@@ -95,10 +157,12 @@ Symbol getSymbol (Section* scope)
 	return s;
 }
 
-Section getSection ()
+Section getSection (Section* parent = 0)
 {
-	Section sc = {};
-	Symbol s = {};
+	Section* sc = malloc (sizeof (Section));
+	{ Section tmp = {0}; *sc = tmp; } // zero-init
+	
+	Symbol s = {0};
 	
 	// populate the symbol tree one by one
 	// this may branch into recursive calls
@@ -106,19 +170,28 @@ Section getSection ()
 	{	
 		s = getSymbol (& sc);
 	}
+	
+	if (parent != 0)
+	{
+		Symbol* parent->insert (*sc);
+		free (sc);
+	
 	return sc;
 }
 
 Program getProgram ()
 {
-	Program ret;
-	global = &ret.global;
+	Program res = {};
+	program = & res;
 	
-	ret.global = getSection();
+	res.global = getSection();
 	
+	global = &res.global;
 	
+	res.global = getSection();
+	res.name = res.global.name;
 	
-	return ret;
+	return res;
 }
 
 
@@ -135,11 +208,11 @@ int getName (Name* nameRef, Word* first = 0x0)
 	
 }
 
-int getTuple (Word open_paren, Typeid** tp)
+int getTuple (Word open_paren, Type** tp)
 {
 	Word w;
 	
-	arr <Typeid> sig;
+	arr <Type> sig;
 	sig.allocate (2);
 
 	w = getword();
@@ -153,11 +226,11 @@ int getTuple (Word open_paren, Typeid** tp)
 	return 0;
 }
 
-int getType (Typeid* tp)
+int getType (Type* tp)
 {
 	Word w = getword();
 	
-	arr<Typeid> sig;
+	arr<Type> sig;
 	sig.allocate (2);
 	
 	if (w.id == '(')
@@ -176,16 +249,16 @@ int getType (Typeid* tp)
 	return 1;
 }
 
-int getTypeid (Typeid* fields, Typeid* aType)
+int getTypeid (Type* fields, Type* aType)
 {
 	aType->id = 0;
-	const Typeid zerotype = {0};
+	const Type zerotype = {0};
 	
 	// if not present, add to type list
 	// and store its index
 	if (!typetable.find (fields, zerotype, aType))
 	{
-		aType->id = types.count + Builtin::tpOff;
+		aType->id = types.count + Types::tpOff;
 		typetable.insert (fields, zerotype, *aType);
 		types.append (fields);
 	}
@@ -193,9 +266,9 @@ int getTypeid (Typeid* fields, Typeid* aType)
 	return 0;
 }
 
-int getFields (Typeid t, Typeid** aFields)
+int getFields (Type t, Type** aFields)
 {
-	Typeid::ID idx = t.id - Builtin::tpOff;  // indices start at 0,
+	Type::ID idx = t.id - Types::tpOff;  // indices start at 0,
 	                                // but values start after integral enum constants
 	*aFields = types [idx];
 	

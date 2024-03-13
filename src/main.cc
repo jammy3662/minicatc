@@ -12,7 +12,6 @@ Trie <char, int> ids;
 
 void dummyParse (FILE* in)
 {
-	
 	int idIdx = WordID::TXT + 1;
 	
 	source = in;
@@ -34,8 +33,6 @@ void dummyParse (FILE* in)
 		if (w.id == -1) break;
 		printf ("%u\t\t%s\n", (unsigned short)(id), (char*)w.str);
 	}
-	
-	fclose (in);
 }
 
 int main (int argc, char** argv)
@@ -57,6 +54,7 @@ for (int i = 0; i < argc; ++i)
 			if (!in) { fprintf (stderr, "File couldn't open (%s)\n", argv[i]); return 1; }
 			printf ("-- Parsing '%s' --\n", argv[i]);
 			dummyParse (in);
+			fclose (in);
 		}
 	}
 	else
@@ -65,8 +63,6 @@ for (int i = 0; i < argc; ++i)
 		printf ("mcatc - Reading from standard input\n");
 	}
 	char* str;
-	
-	
 	
 	return 0;
 }
