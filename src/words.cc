@@ -286,10 +286,21 @@ finish:
 	return 1;
 }
 
+arr <Word> buf = {};
+
 Word getword ()
 {
 	Word w;
 	w.id = -1;
+	
+	// if words were put back earlier, use those first
+	if (buf.count > 0)
+{
+	w = buf [buf.count - 1];
+	buf.count--;
+	if (buf.count % 8 == 0) buf.shrink();
+	return w;
+}	
 	
 	arr<char> str = {};
 	
@@ -344,4 +355,9 @@ Word getword ()
 	str.shrink ();
 	w.str = str.ptr;
 	return w;
+}
+
+void putwordback (Word w)
+{
+	buf.append (w);
 }

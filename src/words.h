@@ -15,7 +15,7 @@ extern FILE* source;
 namespace WordID  { enum
 {
 	INT = WordINTBit,  FLOAT,  STR,
-	COM_LINE,  COM_BLOCK,  TXT,  PLACEHOLDER,
+	TXT,  PLACEHOLDER, COM_LINE,  COM_BLOCK,
 };}
 
 struct Word
@@ -25,5 +25,6 @@ struct Word
 };
 
 Word getword ();
+void putwordback (Word);
 
 #endif

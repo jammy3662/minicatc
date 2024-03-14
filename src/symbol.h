@@ -6,31 +6,6 @@
 
 typedef unsigned long Typeid;
 
-struct Type
-{
-	Typeid  id;
-	
-	char
-	fconst      :  1,
-	flocal      :  1,
-	fstatic     :  1,
-	fextern     :  1,
-	fsigned     :  1,
-	fshort      :  2,
-	flong       :  2,
-	
-	fcregister  :  1,
-	fcrestrict  :  1,
-	fcvolatile  :  1;
-	
-	char* name;
-	Type* fields;
-	
-	char* printf ();
-	
-	operator Typeid () {return id;}
-};
-
 namespace Types  { enum
 {
 	NONE = 0,
@@ -41,18 +16,18 @@ namespace Types  { enum
 	const Typeid tpOff = (Types::PTR + 1);
 }
 
-inline
-char isBuiltin (Typeid type)
-{
-	return (type <= Types::PTR);
-}
-
 union Integral
 {
 	int i;  char c;  short s;  long l;
 	long long ll;  float f;  double d;  long double ld;
 	void* ptr;
 };
+
+inline
+char isBuiltin (Typeid type)
+{
+	return (type <= Types::PTR);
+}
 
 namespace Opcode  { enum
 {
@@ -92,7 +67,7 @@ enum SymbolT
 {
 	END=(-1), NONE=(0),
 	
-	OBJ, STRUCT, ALIAS, ENUM, FUNC,
+	OBJ, STRUCT, ALIAS, ENUM, FUNC, TYPE
 };
 
 struct Symbol
@@ -104,6 +79,24 @@ struct Symbol
 	
 	Symbol* get (char* name);
 	Symbol* operator / (char* name) {return get(name);}
+};
+
+struct Type: Symbol
+{
+	Typeid  id;
+	
+	char
+	fconst   :  1,  flocal   :  1,
+	fstatic  :  1,  fextern  :  1,
+	fsigned  :  1,  fshort   :  2,
+	flong    :  2,
+	
+	fcregister  :  1,  fcrestrict  :  1,  fcvolatile  :  1;
+	
+	char* name;
+	Type* fields;
+	
+	operator Typeid () {return id;}
 };
 
 // a typed chunk of memory
