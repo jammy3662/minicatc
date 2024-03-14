@@ -40,6 +40,11 @@ int main (int argc, char** argv)
 {
 	FILE* in;
 	
+	Symbol* p;
+	source = stdin;
+	//p = getProgram ();
+	//return 0;
+	
 	for (int i = 0; i < argc; ++i)
 {
 	if (!strcmp(argv[i], "--help"))

@@ -8,9 +8,8 @@ typedef unsigned long Typeid;
 
 struct Type
 {
-	Typeid  id;	
-	struct
-{
+	Typeid  id;
+	
 	char
 	fconst      :  1,
 	flocal      :  1,
@@ -23,7 +22,6 @@ struct Type
 	fcregister  :  1,
 	fcrestrict  :  1,
 	fcvolatile  :  1;
-};
 	
 	char* name;
 	Type* fields;
@@ -127,8 +125,7 @@ struct Var: Object
 	Integral  constant;
 	Expr*  expression;
 	Object*  object;
-}
-	value;
+};
 };
 
 struct Enum
@@ -166,15 +163,13 @@ struct Operator: Func
 	int  opcode; // constant from 'Opcode'
 };
 
-struct Program: Symbol
-{
-	// user defined operator behaviors
-	// only one set of 'operator overloads' per program
-	arr <Operator> operators;
-};
+// user defined operator behaviors
+// only one set of 'operator overloads' per program
+extern
+arr <Operator> operators;
 
 // ====----====----====----====----====----====----
 
-Program getProgram ();
+Symbol* getProgram ();
 
 #endif

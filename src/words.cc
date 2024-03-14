@@ -66,15 +66,14 @@ readone:
 		c = fgetc (source);
 		goto readone;
 	}
-	if (c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'f' || c == 'F')
+	
+	if (not (c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'f' || c == 'F'))
 	{
-		str.append (c);
-		return w;
+		// found a non-number character, non-suffix
+		// put it back and end the word
+		ungetc (c, source);
 	}
 	
-	// found a non-number character,
-	// put it back and end the wordt
-	ungetc (c, source);
 	str.append (0);
 	str.shrink();
 	w.str = str.ptr;
@@ -116,15 +115,16 @@ Word getalpha (char first)
 	Word w;
 	
 	arr<char> str = {};
-	str.append (first);
 	
-	char c = fgetc (source);
+	char c = first;
 	
 	// single underscore is treated as a special name
 	// essentially ignores the symbol outside of its declaration
 	if (c == '_')
 	{
 		w.id = WordID::PLACEHOLDER;
+		str.append (c);
+		c = fgetc (source);
 		goto update;
 	}
 	
