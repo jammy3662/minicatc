@@ -88,10 +88,6 @@ namespace Opcode  { enum
 
 // ====----====----====----====----====----====----
 
-struct Section;
-struct Symbol;
-struct Var;
-
 struct Expr; // expression
 
 enum SymbolT
@@ -109,7 +105,9 @@ struct Symbol
 	Trie <char, Symbol*>  fields;
 	
 	Symbol* get (char* name);
-	Symbol& operator / (char* name) {return *get(name);}
+	
+	template <typename T>
+	T& operator / (char* name) {return *(T*)get(name);}
 };
 
 // a typed chunk of memory
@@ -161,82 +159,22 @@ struct Expr: Object
 	Var evaluate ();
 };
 
-
-
-struct Section;
-
-struct Func
-{
-	Type  ret;  // return type
-	Type  args;  // arguments / function signature
-	Type  target;  // type-specific functions
-	
-	Section*  body;
-	arr <Value>  expressions;
-
-	char*  name;
-};
-
 // a user-defined operation is internally a function
 // with two arguments: the left & right operand
-struct Operator
+struct Operator: Func
 {
 	int  opcode; // constant from 'Opcode'
-	
-	Type  left, right;
-	Type  result;
-	
-	Func*  body;
 };
 
-union Symbol::Ref
+struct Program: Symbol
 {
-	Type  type;  // datatype lookup by name
-	Enum  enm;  // map names to values / expressions
-	Symbol alias; // handle to another symbol
-	Var  var;  // stored value
-	Value  value;  // expression
-	Func  function;  // expression with inputs
-	Section*  section;  // module or struct
-	char* header;
-};
-
-struct Section
-{
-	// if static, this is a standalone set of symbols, like a namespace
-	// otherwise, it is a struct with fields instantiated as an object
-	char isStatic;
-	
-	Type  fields;
-	
-	Trie  <char, Symbol>  index;
-	Trie  <Type, Type*>  typesigs;
-	
-	// for compile metadata
-	typedef int Errc;
-	arr  <Errc>  errors;
-
-	char*  name;
-
-	Symbol insert (Symbol);
-	Symbol get (char* name);
-	Symbol lookup (char** name);
-};
-
-struct Program
-{
-	Section global;
-	
 	// user defined operator behaviors
 	// only one set of 'operator overloads' per program
 	arr <Operator> operators;
-	
-	char* name;
 };
 
 // ====----====----====----====----====----====----
 
 Program getProgram ();
-
 
 #endif

@@ -1,5 +1,7 @@
 #include "symbol.h"
 
+#ifdef SYMBOL_DOT_CC
+
 Symbol Value::get (char* name);
 Symbol Enum::get (char* name);
 Symbol Section::get (char* name);
@@ -193,7 +195,7 @@ Program getProgram ()
 	
 	return res;
 }
-
+#endif
 
 /*
 

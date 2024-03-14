@@ -61,6 +61,7 @@ for (int i = 0; i < argc; ++i)
 	{
 		in = stdin;
 		printf ("mcatc - Reading from standard input\n");
+		dummyParse (in);
 	}
 	char* str;
 	
