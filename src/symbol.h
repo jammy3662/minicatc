@@ -94,7 +94,7 @@ enum SymbolT
 {
 	END=(-1), NONE=(0),
 	
-	OBJ, MODULE, ALIAS, ENUM, FUNC,
+	OBJ, STRUCT, ALIAS, ENUM, FUNC,
 };
 
 struct Symbol
@@ -105,9 +105,7 @@ struct Symbol
 	Trie <char, Symbol*>  fields;
 	
 	Symbol* get (char* name);
-	
-	template <typename T>
-	T& operator / (char* name) {return *(T*)get(name);}
+	Symbol* operator / (char* name) {return get(name);}
 };
 
 // a typed chunk of memory
@@ -138,13 +136,6 @@ struct Enum
 	Trie <char, Var>  values;
 };
 
-struct Func: Object
-{
-	Type  args, target;
-	
-	Expr*  body;
-};
-
 // recursive structure for all values, expressions, and operations
 struct Expr: Object
 {
@@ -155,6 +146,15 @@ struct Expr: Object
 	
 	Var  left;
 	Var  right;
+	
+	Var evaluate ();
+};
+
+struct Func: Object
+{
+	Type  args, target;
+	
+	Expr  body;
 	
 	Var evaluate ();
 };
