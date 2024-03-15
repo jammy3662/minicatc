@@ -81,20 +81,19 @@ struct Symbol
 	Symbol* operator / (char* name) {return get(name);}
 };
 
-struct Type: Symbol
+struct Typesig: Symbol
 {
 	Typeid  id;
 	
 	char
 	fconst   :  1,  flocal   :  1,
 	fstatic  :  1,  fextern  :  1,
-	fsigned  :  1,  fshort   :  2,
-	flong    :  2,
+	fsigned  :  1,  funion   :  1,
+	fshort   :  2,  flong    :  2,
 	
 	fcregister  :  1,  fcrestrict  :  1,  fcvolatile  :  1;
 	
-	char* name;
-	Type* fields;
+	Typesig* fields;
 	
 	operator Typeid () {return id;}
 };
@@ -102,7 +101,7 @@ struct Type: Symbol
 // a typed chunk of memory
 struct Object: Symbol
 {
-	Type type;
+	Typesig type;
 };
 
 // a constant / handwritten value
@@ -121,15 +120,10 @@ struct Var: Object
 };
 };
 
-struct Enum
-{
-	Trie <char, Var>  values;
-};
-
 // recursive structure for all values, expressions, and operations
 struct Expr: Object
 {
-	Type  type;
+	Typesig  type;
 	
 	int  operation;
 // refer to constants in 'Opcode'
@@ -142,11 +136,16 @@ struct Expr: Object
 
 struct Func: Object
 {
-	Type  args, target;
+	Typesig  args, target;
 	
 	Expr  body;
 	
 	Var evaluate ();
+};
+
+struct Enum
+{
+	Trie <char, Var>  values;
 };
 
 // a user-defined operation is internally a function
