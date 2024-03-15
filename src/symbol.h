@@ -65,9 +65,10 @@ struct Expr; // expression
 
 enum SymbolT
 {
-	END=(-1), NONE=(0),
+	ENDF=(-1), NONE=(0),
 	
-	OBJ, STRUCT, ALIAS, ENUM, FUNC, TYPE
+	OBJ, STRUCT, ALIAS, ENUM, FUNC,
+	TYPE, QUALIFIER, KEYWORD,
 };
 
 struct Symbol
@@ -78,7 +79,13 @@ struct Symbol
 	Trie <char, Symbol*>  fields;
 	
 	Symbol* get (char* name);
+	int insert (char* name, Symbol*);
 	Symbol* operator / (char* name) {return get(name);}
+};
+
+struct Keyword: Symbol
+{
+	int id;
 };
 
 struct Typesig: Symbol
@@ -93,7 +100,7 @@ struct Typesig: Symbol
 	
 	fcregister  :  1,  fcrestrict  :  1,  fcvolatile  :  1;
 	
-	Typesig* fields;
+	Typesig* members;
 	
 	operator Typeid () {return id;}
 };

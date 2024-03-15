@@ -1,5 +1,7 @@
 #!/bin/bash
 
-clang++ -std=c++98 -c src/*.cc -I include -I src/cext -g3
+CFLAGS="-Wno-c++11-compat-deprecated-writable-strings"
+
+clang++ -std=c++98 -c src/*.cc -I include -I src/cext -g3 $CFLAGS
 clang++ *.o -o mcatc -g3
 rm *.o
