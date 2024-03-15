@@ -1,98 +1,8 @@
 #include "symbol.h"
+#include "language.h"
 
 #include "words.h"
 #include <stdlib.h>
-
-#define initialize(BLOCK) namespace{struct _{_();}__;_::_(){ BLOCK }}
-#define range(TYPE, TARGET, LIST, BLOCK) for(int i=0;i<sizeof(LIST)/sizeof(*LIST);++i){ TYPE & TARGET = LIST [i]; BLOCK }
-
-Symbol language = {};
-Symbol* languageScope = &language;
-
-enum Keywords
-{
-	
-	VOID_T, LET_T,
-	VAR_T, STRUCT_T,
-	UNION_T, ENUM_T,
-	CHAR_T,
-	SHORT_T, INT_T,
-	LONG_T,	DOUBLE_T,
-	AND, OR,
-	IF, ELSE,
-	WHILE, SWITCH,
-	CASE, DO,
-	BREAK, DEFAULT,
-	CONTINUE, FOR,
-	RETURN, END,
-	INCLUDE,
-	INLINE, CONST,
-	STATIC, EXTERN,
-	SIZEOF, TYPEOF,
-	COUNTOF, NAMEOF,
-};
-
-struct Primitive {char* name; Typeid type;};
-
-Primitive types [] =
-{
-	{"void", VOID_T}, {"let", LET_T},
-	{"auto", LET_T}, {"var", VAR_T},
-	{"class", STRUCT_T}, {"struct", STRUCT_T},
-	{"union", UNION_T}, {"enum", ENUM_T},
-	{"char", CHAR_T},	{"byte", CHAR_T},
-	{"short", SHORT_T}, {"int", INT_T},
-	{"long", LONG_T},	{"float", DOUBLE_T},
-	{"double", DOUBLE_T},
-};
-
-Primitive keywords [] =
-{
-	{"if", IF}, {"else", ELSE},
-	{"while", WHILE}, {"switch", SWITCH},
-	{"case", CASE}, {"do", DO},
-	{"break", BREAK}, {"default", DEFAULT},
-	{"continue", CONTINUE}, {"for", FOR},
-	{"return", RETURN}, {"end", END},
-	{"include", INCLUDE},
-	{"inline", INLINE}, {"const", CONST},
-	{"static", STATIC}, {"extern", EXTERN},
-	{"sizeof", SIZEOF}, {"typeof", TYPEOF},
-	{"countof", COUNTOF}, {"nameof", NAMEOF},
-};
-
-void constructLanguage ()
-{
-	language.kind = STRUCT;
-	
-	range (Primitive, type, types,
-{
-	Typesig* sig = (Typesig*) malloc (sizeof( Typesig ));
-	sig->kind = TYPE;
-	sig->name = type.name;
-	sig->id = type.type;
-	
-	language.insert (type.name, sig);
-})
-
-	range (Primitive, word, keywords,
-{
-	Keyword* w = (Keyword*) malloc (sizeof( Keyword ));
-	w->kind = KEYWORD;
-	w->name = word.name;
-	w->id = word.type;
-	
-	language.insert (word.name, w);
-})
-}
-
-struct LanguageConstruction
-{
-		LanguageConstruction()
-	{
-		constructLanguage();
-	}
-}_;
 
 Symbol* program;
 arr <Operator> operators;
@@ -166,7 +76,7 @@ Symbol* getProgram ()
 	Symbol* prog;
 	program = prog;
 	
-	prog = getSymbol (languageScope);
+	prog = getSymbol ((Symbol*)languageScope);
 	
 	return prog;
 }
