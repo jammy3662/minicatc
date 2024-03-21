@@ -67,28 +67,33 @@ enum SymbolT
 {
 	ENDF=(-1), NONE=(0),
 	
-	OBJ, STRUCT, ALIAS, ENUM, FUNC,
-	TYPE, QUALIFIER, KEYWORD,
+	// start symbol enumerations after word ones
+	// this way single-char symbols like + and -
+	// can be mapped to the same id as their word id 
+	OBJ = (WordID::COM_BLOCK+1), STRUCT, ALIAS, ENUM, FUNC,
+	TYPE, QUALIFIER, KEYWORD, EXPRESSION,
+	PTR /* (^) or (*) */,
 };
+
+// wrapper for symbol-specific metadata
+struct Ref {};
+// just a base class
 
 struct Symbol
 {
 	int  kind; // of SymbolT, not to be confused with a datatype (ex. int)
 	char*  name;
 	
-	Trie <char, Symbol*>  fields;
+	// nested symbols
+	Trie <char, Symbol>  fields;
 	
-	Symbol* get (char* name);
-	int insert (char* name, Symbol*);
-	Symbol* operator / (char* name) {return get(name);}
+	Ref*  data; // symbol-specific metadata
+	
+	Symbol get (char* name, int* errc);
+	int insert (char* name, Symbol);
 };
 
-struct Keyword: Symbol
-{
-	int id;
-};
-
-struct Typesig: Symbol
+struct Typesig: Ref
 {
 	Typeid  id;
 	
@@ -106,9 +111,10 @@ struct Typesig: Symbol
 };
 
 // a typed chunk of memory
-struct Object: Symbol
+struct Object: Ref
 {
 	Typesig type;
+	int count; // number of items allocated (for arrays)
 };
 
 // a constant / handwritten value
@@ -152,7 +158,7 @@ struct Func: Object
 
 struct Enum
 {
-	Trie <char, Var>  values;
+	TrieN <char, Var>  values;
 };
 
 // a user-defined operation is internally a function
@@ -169,6 +175,6 @@ arr <Operator> operators;
 
 // ====----====----====----====----====----====----
 
-Symbol* getProgram ();
+Symbol getProgram ();
 
 #endif

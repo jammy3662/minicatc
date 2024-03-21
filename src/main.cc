@@ -3,12 +3,12 @@
 
 #include "trie.h"
 #include "words.h"
-#include "symbol.h"
+#include "symbol1.h"
 
 // map type names to int values
-Trie <char, int> typeids;
+TrieN <char, int> typeids;
 
-Trie <char, int> ids;
+TrieN <char, int> ids;
 
 void dummyParse (FILE* in)
 {
@@ -40,7 +40,7 @@ int main (int argc, char** argv)
 {
 	FILE* in;
 	
-	Symbol* p;
+	
 	source = stdin;
 	//p = getProgram ();
 	//return 0;

@@ -1,5 +1,12 @@
 #include "language.h"
 
+/*
+
+//
+// From an older model of the symbol structure
+// TODO: update along with newer model
+//
+
 Symbol language = {};
 
 LanguageConstruction::LanguageConstruction ()
@@ -8,20 +15,28 @@ LanguageConstruction::LanguageConstruction ()
 	
 	range (Primitive, type, types,
 {
+	Symbol insert;
+	insert.kind = TYPE;
+	insert.name = type.name;
+	
 	Typesig* sig = (Typesig*) malloc (sizeof( Typesig ));
-	sig->kind = TYPE;
-	sig->name = type.name;
 	sig->id = type.type;
 	
-	language.insert (type.name, sig);
+	insert.data = sig;
+	language.insert (insert.name, insert);
 })
 	range (Primitive, word, keywords,
 {
+	Symbol insert;
+	insert.kind = KEYWORD;
+	insert.name = word.name;
+	
 	Keyword* w = (Keyword*) malloc (sizeof( Keyword ));
-	w->kind = KEYWORD;
-	w->name = word.name;
 	w->id = word.type;
 	
-	language.insert (word.name, w);
+	insert.data = w;
+	language.insert (insert.name, insert);
 })
 }
+
+*/

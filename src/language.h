@@ -8,9 +8,8 @@
 extern
 Symbol language;
 
-static const
-Symbol* const languageScope = &language;
-
+namespace Builtins
+{
 enum Keywords
 {
 	
@@ -65,8 +64,6 @@ Primitive keywords [] =
 	{"countof", COUNTOF}, {"nameof", NAMEOF},
 };
 
-static
-struct LanguageConstruction
-{ LanguageConstruction(); }_;
+}
 
 #endif

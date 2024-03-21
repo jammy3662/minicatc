@@ -9,7 +9,7 @@ struct Table
 {
 	typedef unsigned short I;
 	
-	Trie <K, I>  index;
+	TrieN <K, I>  index;
 	arr <K*>  contents;
 	
 	I val (K* key);
