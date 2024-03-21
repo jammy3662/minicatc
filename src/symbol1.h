@@ -5,7 +5,7 @@
 #include "table.h"
 
 // ====----====----====----====----====----====----
-
+/*
 enum SymbolT
 {
 	ENDF=(-1),
@@ -13,11 +13,11 @@ enum SymbolT
 	// start symbol enumerations after word ones
 	// this way single-char symbols like + and -
 	// can be mapped to the same id as their word id 
-	OBJ = (WordID::COM_BLOCK+1), STRUCT, ALIAS, ENUM, FUNC,
+	OBJ = (WordCOUNT+1), STRUCT, ALIAS, ENUM, FUNC,
 	TYPE, QUALIFIER, KEYWORD, EXPRESSION,
-	POINT /* (^) or (*) */,
+	POINT, // (^) or (*)
 };
-
+*/
 struct Expr; // expression
 
 // ====----====----====----====----====----====----
@@ -54,21 +54,6 @@ enum Opcode
 
 typedef long Typeid;
 
-// universal symbol identifier
-typedef unsigned long iid;
-
-enum Types
-{
-	INT = (Typeid) 1,  BIT,  CHAR,  BYTE,  SHORT,  LONG,
-	LONGLONG,  FLOAT,  DOUBLE,  LONGDOUBLE,
-	PTR,
-	TypesCOUNT, // number of builtin enum values
-};
-
-inline
-char isBuiltin (Typeid type)
-{  return (type <= PTR);  }
-
 union Integral
 {
 	int i;  char c;  short s;  long l;
@@ -78,24 +63,26 @@ union Integral
 
 enum StorageClass
 {
-	LOCAL = 1, AUTO = (LOCAL),
-	STATIC,
-	EXTERN,
-	REGISTER,
+	fLOCAL = 1,
+	fSTATIC,
+	fEXTERN,
+	fREGISTER,
 };
 
 enum TypeClass
 {
-	CONST = 1,
-	VOLATILE,
+	fCONST = 1,
+	fVOLATILE,
 };
 
-struct TypeHeader
+struct SymbolTable;
+
+struct Type
 {
 	StorageClass storage;
 	TypeClass flags;
 	
-	Typeid type;
+	Typeid id;
 };
 
 // * modules (namespaces)
@@ -105,37 +92,35 @@ struct TypeHeader
 // * generic values (expressions)
 struct Object
 {
-	TypeHeader type;
+	Type type;
 	char* name;
+	
+	char isIntegral: 1, // int, float, etc
+	     isConstant: 1; // whether handwritten value
 	
 	Integral integral;
 	arr <Object> fields;
 	
-	char isIntegral: 1,
-	     isConstant: 1;
+	SymbolTable* defs;
+	
+	int count; // array size
 };
 typedef Object* Symbol;
 
-struct Var
-{
-	char* name;
-	Symbol value;
-};
-
 struct Func
 {
-	TypeHeader returnType;
+	Type returnType;
 	char* name;
 	
-	TypeHeader object;
-	arr <Var> args; // use vars to track arg names (metadata)
+	Type objectType;
+	arr <Symbol> args; // use vars to track arg names (metadata)
 	
 	Trie <char, int> argTable;
 };
 
 struct Enum
 {
-	TypeHeader type;
+	Type type;
 	char* name;
 	
 	arr <Symbol> constants; // enum values can't be variable
@@ -155,10 +140,22 @@ struct Tuple
 
 struct Operator
 {
-	TypeHeader returnType;
+	Type returnType;
 	int opcode;
-	Var left, right;
+	Object left, right;
 };
+
+struct SymbolTable
+{
+	Database <char, Func> functions;
+	Database <char, Enum> enums;
+	Database <char, Tuple> tuples;
+	Database <char, Operator> ops;
+};
+
+static
+Database <char, Type>
+types;
 
 // ====----====----====----====----====----====----
 

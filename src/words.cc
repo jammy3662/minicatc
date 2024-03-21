@@ -13,7 +13,7 @@ FILE* source;
 Word getnumber (char first)
 {
 	Word w;
-	w.id = WordID::INT;
+	w.id = INT_LIT;
 	
 	arr<char> str = {};
 	str.append (first);
@@ -45,7 +45,7 @@ readone:
 	}
 	if (c == '.' && not hasDecimal && not hasPrefix)
 	{
-		w.id = WordID::FLOAT;
+		w.id = FLOAT_LIT;
 		hasDecimal = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -53,7 +53,7 @@ readone:
 	}
 	if (c == 'e' || c == 'E' &&	not hasExponent && not hasPrefix)
 	{
-		w.id = WordID::FLOAT;
+		w.id = FLOAT_LIT;
 		hasExponent = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -83,7 +83,7 @@ readone:
 Word getstring (char delim)
 {
 	Word w;
-	w.id = WordID::STR;
+	w.id = STR;
 	
 	arr<char> str = {};
 	
@@ -122,7 +122,7 @@ Word getalpha (char first)
 	// essentially ignores the symbol outside of its declaration
 	if (c == '_')
 	{
-		w.id = WordID::PLACEHOLDER;
+		w.id = PLACEHOLDER;
 		str.append (c);
 		c = fgetc (source);
 		goto update;
@@ -130,7 +130,7 @@ Word getalpha (char first)
 	
 nextletter:
 
-	w.id = WordID::TXT;
+	w.id = TXT;
 	
 update:
 
@@ -154,7 +154,7 @@ update:
 Word getlinecom ()
 {
 	Word w;
-	w.id = WordID::COM_LINE;
+	w.id = COM_LINE;
 	
 	arr<char> str = {};
 	
@@ -190,7 +190,7 @@ Word getlinecom ()
 Word getblockcom ()
 {
 	Word w;
-	w.id = WordID::COM_BLOCK;
+	w.id = COM_BLOCK;
 	
 	arr<char> str = {};
 	

@@ -12,11 +12,12 @@ extern FILE* source;
 #define WordCharBits  (sizeof(char) * 8)
 #define WordINTBit  (1 << WordCharBits)
 
-namespace WordID  { enum
+enum WordID
 {
-	INT = WordINTBit,  FLOAT,  STR,
+	INT_LIT = WordINTBit,  FLOAT_LIT,  STR,
 	TXT,  PLACEHOLDER, COM_LINE,  COM_BLOCK,
-};}
+	WordCOUNT,
+};
 
 struct Word
 {

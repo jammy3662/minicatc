@@ -1,5 +1,70 @@
 #include "language.h"
 
+struct Primitive {char* name; Typeid type;};
+
+arr <Tuple> langTypes;
+Trie <char, int> langTypeTable;
+
+const
+Primitive langtypes [] =
+{
+	{"void", VOID},
+	{"let", AUTO}, {"auto", AUTO},
+	{"var", VAR},
+	{"char", CHAR}, {"byte", CHAR},
+	{"int", INT},
+	{"float", FLOAT},
+	{"double", DOUBLE},
+};
+
+const
+Primitive keywords [] =
+{
+	{"local", AUTO},
+	{"auto", AUTO},
+	{"static", STATIC},
+	{"extern", EXTERN},
+	{"register", REGISTER},
+	{"const", CONST},
+	{"volatile", VOLATILE},
+	{"inline", INLINE},
+	{"local", LOCAL},
+	{"short", SHORT},
+	{"long", LONG},
+	{"signed", SIGNED},
+	{"unsigned", UNSIGNED},
+
+	{"include", INCLUDE},
+	{"merge", SHORT},
+	
+	{"typeof", TYPEOF},
+	{"nameof", NAMEOF},
+	{"countof", COUNTOF},
+	{"fieldsof", FIELDSOF},
+	
+	{"struct", STRUCT},
+	{"union", UNION},
+	{"enum", ENUM},
+	{"module", MODULE},
+	
+	{"if", IF}, {"else", ELSE},
+	{"while", WHILE}, {"switch", SWITCH},
+	{"case", CASE}, {"do", DO},
+	{"break", BREAK}, {"default", DEFAULT},
+	{"continue", CONTINUE}, {"for", FOR},
+	{"return", RETURN}, {"end", END},
+};
+
+LanguageInit::LanguageInit ()
+{
+	language.defs = (SymbolTable*) malloc (sizeof( SymbolTable ));
+	
+	range (Primitive, type, langtypes,
+{
+	language.defs;
+})
+}
+
 /*
 
 //

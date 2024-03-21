@@ -3,5 +3,3 @@
 
 #include "words.h"
 #include <stdlib.h>
-
-arr <Tuple> types;

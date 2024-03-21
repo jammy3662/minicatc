@@ -12,7 +12,7 @@ TrieN <char, int> ids;
 
 void dummyParse (FILE* in)
 {
-	int idIdx = WordID::TXT + 1;
+	int idIdx = TXT + 1;
 	
 	source = in;
 	
@@ -21,7 +21,7 @@ void dummyParse (FILE* in)
 		Word w = getword ();
 		int id = w.id;
 		
-		if (w.id == WordID::TXT)
+		if (w.id == TXT)
 {
 		int err;
 		id = ids.find (w.str, 0, &err);
