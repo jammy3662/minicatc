@@ -4,32 +4,9 @@
 #include "words.h"
 #include "table.h"
 
-typedef unsigned long Typeid;
+struct Expr; // expression
 
-namespace Types  { enum
-{
-	NONE = 0,
-	SYMBOL,  MODULE,  FUNC,  STRUCT,  ENUM,  ALIAS,
-	INT,  BIT,  CHAR,  BYTE,  SHORT,  LONG,
-	LONGLONG,  FLOAT,  DOUBLE,  LONGDOUBLE,  PTR,
-};
-	const Typeid tpOff = (Types::PTR + 1);
-}
-
-union Integral
-{
-	int i;  char c;  short s;  long l;
-	long long ll;  float f;  double d;  long double ld;
-	void* ptr;
-};
-
-inline
-char isBuiltin (Typeid type)
-{
-	return (type <= Types::PTR);
-}
-
-namespace Opcode  { enum
+enum Opcode
 {
 	x2 = WordDOUBLEOPBit,
 	x3 = WordTRIPLEOPBit,
@@ -57,124 +34,116 @@ namespace Opcode  { enum
 	LSHF    = ('<'|x2),   RSHF  = ('>'|x2),
 	LROT    = ('<'|x3),   RROT  = ('>'|x3),
 	LEFT    = ('<'*'-'),  RIGHT = ('-'*'>'), 
-};}
-
-// ====----====----====----====----====----====----
-
-struct Expr; // expression
-
-enum SymbolT
-{
-	ENDF=(-1), NONE=(0),
-	
-	// start symbol enumerations after word ones
-	// this way single-char symbols like + and -
-	// can be mapped to the same id as their word id 
-	OBJ = (WordID::COM_BLOCK+1), STRUCT, ALIAS, ENUM, FUNC,
-	TYPE, QUALIFIER, KEYWORD, EXPRESSION,
-	PTR /* (^) or (*) */,
 };
 
-// wrapper for symbol-specific metadata
-struct Ref {};
-// just a base class
+typedef long Typeid;
 
-struct Symbol
+union Integral
 {
-	int  kind; // of SymbolT, not to be confused with a datatype (ex. int)
-	char*  name;
-	
-	// nested symbols
-	Trie <char, Symbol>  fields;
-	
-	Ref*  data; // symbol-specific metadata
-	
-	Symbol get (char* name, int* errc);
-	int insert (char* name, Symbol);
+	int i;  char c;  short s;  long l;
+	long long ll;  float f;  double d;  long double ld;
+	void* ptr;
 };
 
-struct Typesig: Ref
+enum StorageClass
 {
-	Typeid  id;
-	
-	char
-	fconst   :  1,  flocal   :  1,
-	fstatic  :  1,  fextern  :  1,
-	fsigned  :  1,  funion   :  1,
-	fshort   :  2,  flong    :  2,
-	
-	fcregister  :  1,  fcrestrict  :  1,  fcvolatile  :  1;
-	
-	Typesig* members;
-	
-	operator Typeid () {return id;}
+	fLOCAL = 1,
+	fSTATIC,
+	fEXTERN,
+	fREGISTER,
 };
 
-// a typed chunk of memory
-struct Object: Ref
+enum TypeClass
 {
-	Typesig type;
-	int count; // number of items allocated (for arrays)
+	fCONST = 1,
+	fVOLATILE,
 };
 
-// a constant / handwritten value
-// the result of an expression (another value)
-// a named variable from the code
-struct Var: Object
+struct SymbolTable;
+
+struct Type
 {
-	char  isLiteral: 1; // structs can also be written as a literal
-	char  isObject: 1;
+	StorageClass storage;
+	TypeClass flags;
 	
-	union
-{
-	Integral  constant;
-	Expr*  expression;
-	Object*  object;
-};
+	Typeid id;
 };
 
-// recursive structure for all values, expressions, and operations
-struct Expr: Object
+// * modules (namespaces)
+// * struct objects (variables)
+// * variable instances (objects)
+// * function calls (return values)
+// * generic values (expressions)
+struct Object
 {
-	Typesig  type;
+	Type type;
+	char* name;
 	
-	int  operation;
-// refer to constants in 'Opcode'
+	char isIntegral: 1, // int, float, etc
+	     isConstant: 1; // whether handwritten value
 	
-	Var  left;
-	Var  right;
+	Integral integral;
+	arr <Object> fields;
 	
-	Var evaluate ();
+	SymbolTable* defs;
+	
+	int count; // array size
 };
+typedef Object* Symbol;
 
-struct Func: Object
+struct Func
 {
-	Typesig  args, target;
+	Type returnType;
+	char* name;
 	
-	Expr  body;
+	Type objectType;
+	arr <Symbol> args; // use vars to track arg names (metadata)
 	
-	Var evaluate ();
+	Trie <char, int> argTable;
 };
 
 struct Enum
 {
-	TrieN <char, Var>  values;
+	Type type;
+	char* name;
+	
+	arr <Symbol> constants; // enum values can't be variable
+	Trie <char, int> index;
 };
 
-// a user-defined operation is internally a function
-// with two arguments: the left & right operand
-struct Operator: Func
+struct Tuple
 {
-	int  opcode; // constant from 'Opcode'
+	// index into internal type list
+	Typeid id;
+	char* name;
+	
+	char sharedBits; // if set, treat as a union
+	arr <Typeid> fields;
+	Trie <char, int> fieldTable;
 };
 
-// user defined operator behaviors
-// only one set of 'operator overloads' per program
-extern
-arr <Operator> operators;
+struct Operator
+{
+	Type returnType;
+	int opcode;
+	Object left, right;
+};
+
+struct SymbolTable
+{
+	Database <char, Type, Typeid> types;
+	Trie <char, long> keywords;
+	
+	Database <char, Func> functions;
+	Database <char, Enum> enums;
+	Database <char, Tuple> tuples;
+	Database <char, Operator> ops;
+};
+
+
 
 // ====----====----====----====----====----====----
 
-Symbol getProgram ();
+void getProgram ();
 
 #endif

@@ -1,27 +1,20 @@
 #include "language.h"
 
-struct Primitive {char* name; Typeid type;};
-
-arr <Tuple> langTypes;
-Trie <char, int> langTypeTable;
+struct Keyword {char* name; Typeid type;};
 
 const
-Primitive langtypes [] =
+Keyword keywordPairs [] =
 {
-	{"void", VOID},
-	{"let", AUTO}, {"auto", AUTO},
-	{"var", VAR},
-	{"char", CHAR}, {"byte", CHAR},
-	{"int", INT},
-	{"float", FLOAT},
-	{"double", DOUBLE},
-};
-
-const
-Primitive keywords [] =
-{
-	{"local", AUTO},
+	{"void", VOID_T},
+	{"var", VAR_T},
+	{"char", CHAR_T}, {"byte", CHAR_T},
+	{"int", INT_T},
+	{"float", FLOAT_T},
+	{"double", DOUBLE_T},
+	
+	{"let", AUTO},
 	{"auto", AUTO},
+	{"local", LOCAL},
 	{"static", STATIC},
 	{"extern", EXTERN},
 	{"register", REGISTER},
@@ -37,6 +30,7 @@ Primitive keywords [] =
 	{"include", INCLUDE},
 	{"merge", SHORT},
 	
+	{"sizeof", SIZEOF},
 	{"typeof", TYPEOF},
 	{"nameof", NAMEOF},
 	{"countof", COUNTOF},
@@ -47,61 +41,66 @@ Primitive keywords [] =
 	{"enum", ENUM},
 	{"module", MODULE},
 	
+	{"do", DO}, {"end", END},
 	{"if", IF}, {"else", ELSE},
 	{"while", WHILE}, {"switch", SWITCH},
-	{"case", CASE}, {"do", DO},
-	{"break", BREAK}, {"default", DEFAULT},
-	{"continue", CONTINUE}, {"for", FOR},
-	{"return", RETURN}, {"end", END},
+	{"case", CASE}, {"default", DEFAULT},
+	{"break", BREAK}, {"continue", CONTINUE},
+	{"for", FOR},
+	{"return", RETURN},
 };
 
+LanguageInit _;
 LanguageInit::LanguageInit ()
 {
+	SymbolTable defs;
+	
+	const int ct = sizeof (keywordPairs) / sizeof (*keywordPairs);
+	
+	int i;
+	for (i = 0; i < 7; ++i)
+	{
+		Keyword k = keywordPairs [i];
+		defs.types.index.insert (k.name, (char)0, k.type);
+	}
+	for (; i < ct; ++i)
+	{
+		Keyword k = keywordPairs [i];
+		defs.keywords.insert (k.name, (char)0, k.type);
+	}
+	
 	language.defs = (SymbolTable*) malloc (sizeof( SymbolTable ));
-	
-	range (Primitive, type, langtypes,
-{
-	language.defs;
-})
+	*language.defs = defs;
 }
 
-/*
-
-//
-// From an older model of the symbol structure
-// TODO: update along with newer model
-//
-
-Symbol language = {};
-
-LanguageConstruction::LanguageConstruction ()
+Word getwordF (Object* scope)
 {
-	language.kind = STRUCT;
+	Word res;
+	res = getword();
 	
-	range (Primitive, type, types,
+	if (not isBuiltin (res.id))
 {
-	Symbol insert;
-	insert.kind = TYPE;
-	insert.name = type.name;
-	
-	Typesig* sig = (Typesig*) malloc (sizeof( Typesig ));
-	sig->id = type.type;
-	
-	insert.data = sig;
-	language.insert (insert.name, insert);
-})
-	range (Primitive, word, keywords,
-{
-	Symbol insert;
-	insert.kind = KEYWORD;
-	insert.name = word.name;
-	
-	Keyword* w = (Keyword*) malloc (sizeof( Keyword ));
-	w->id = word.type;
-	
-	insert.data = w;
-	language.insert (insert.name, insert);
-})
+		long newid;
+		
+		check:
+		
+		if (scope != 0x0)
+	{
+			int err;
+			newid = scope->defs->keywords.find (res.str, (char)0, &err);
+			
+			if (!err)
+		{
+				res.id = newid;
+				return res;
+		}
+			
+			newid = scope->defs->types.index.find (res.str, (char)0, &err);
+			
+			if (!err) { res.id = newid; }
+			else { scope = &language; goto check; }
+	}
+	else { scope = &language; goto check; }
 }
-
-*/
+	return res;
+}

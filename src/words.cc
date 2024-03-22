@@ -76,7 +76,7 @@ readone:
 	
 	str.append (0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 
@@ -106,7 +106,7 @@ nextc:
 	
 	str.append (0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 
@@ -147,7 +147,7 @@ update:
 	
 	str.append (0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 
@@ -183,7 +183,7 @@ Word getlinecom ()
 	
 	str.append(0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 
@@ -220,7 +220,7 @@ Word getblockcom ()
 	
 	str.append(0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 
@@ -247,7 +247,7 @@ int get2 (char op, Word* _word_)
 finish:
 	str.append (0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	*_word_ = w;
 	return 1;
 }
@@ -281,7 +281,7 @@ int get3 (char op, Word* _word_)
 finish:
 	str.append (0);
 	str.shrink();
-	w.str = str.ptr;
+	w.str = str;
 	*_word_ = w;
 	return 1;
 }
@@ -353,7 +353,7 @@ Word getword ()
 
 	str.append (0);
 	str.shrink ();
-	w.str = str.ptr;
+	w.str = str;
 	return w;
 }
 

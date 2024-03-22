@@ -3,7 +3,8 @@
 
 #include "trie.h"
 #include "words.h"
-#include "symbol1.h"
+#include "symbol.h"
+#include "language.h"
 
 // map type names to int values
 TrieN <char, int> typeids;
@@ -18,7 +19,7 @@ void dummyParse (FILE* in)
 	
 	for (int i = 0; (1); ++i)
 {
-		Word w = getword ();
+		Word w = getwordF ();
 		int id = w.id;
 		
 		if (w.id == TXT)

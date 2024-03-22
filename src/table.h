@@ -18,11 +18,11 @@ struct Table
 	K*& operator [] (I idx) { return contents [idx]; }
 };
 
-template <typename K, typename V>
+template <typename K, typename V, typename I = long>
 struct Database
 {
 	arr <V> values;
-	Trie <K, int>	index;
+	Trie <K, I>	index;
 	
 	V& find (K* key, K stop, int* errc = 0x0)
 	{
@@ -30,7 +30,7 @@ struct Database
 	}
 	void insert (K* key, K stop, V val)
 	{
-		int idx = values.count;
+		I idx = values.count;
 		values.append (val); // (!) this changes the count field
 		index.insert (key, stop, idx);
 	}

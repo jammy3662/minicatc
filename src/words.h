@@ -2,6 +2,7 @@
 #define WORDS_DOT_H
 
 #include <stdio.h>
+#include "container.h"
 
 #define no !
 
@@ -16,13 +17,13 @@ enum WordID
 {
 	INT_LIT = WordINTBit,  FLOAT_LIT,  STR,
 	TXT,  PLACEHOLDER, COM_LINE,  COM_BLOCK,
-	WordCOUNT,
+	WordEND,
 };
 
 struct Word
 {
-	short  id;
-	char*  str;
+	long  id;
+	arr <char>  str;
 };
 
 Word getword ();

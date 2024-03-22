@@ -1,29 +1,22 @@
 #ifndef LANGUAGE_DOT_H
 #define LANGUAGE_DOT_H
 
-#include "symbol1.h"
+#include "symbol.h"
 
 #define range(TYPE, TARGET, LIST, BLOCK) for(int i=0;i<sizeof(LIST)/sizeof(*LIST);++i){ const TYPE & TARGET = LIST [i]; BLOCK }
 
 static
 Object language;
 
-enum Types
+// symbol id
+enum SID
 {
-	INT = (Typeid) WordCOUNT + 1,  BIT,  CHAR,
-	FLOAT,  DOUBLE,
-	PTR, VOID,
-	VAR, // meta-program constructs
-	TypesCOUNT,
-};
-
-inline
-char isBuiltin (Typeid type)
-{  return (type <= PTR);  }
-
-enum Keywords
-{
-	LOCAL, AUTO=(LOCAL),
+	INT_T = WordEND + 1,  BIT_T,  CHAR_T,
+	FLOAT_T,  DOUBLE_T,
+	PTR_T, VOID_T,
+	AUTO_T, VAR_T, // meta-program constructs
+	
+	LOCAL, AUTO,
 	STATIC, EXTERN,
 	REGISTER, CONST, VOLATILE,
 	INLINE,
@@ -50,10 +43,20 @@ enum Keywords
 	BREAK, CONTINUE,
 	FOR,
 	RETURN,
+	
+	SIDEND,
 };
 
-static
+inline
+char isBuiltin (long id)
+{  return (id < SIDEND);  }
+
+extern
 struct LanguageInit
 { LanguageInit(); } _;
+
+Word getwordF (Object* scope = 0x0);
+
+Object getObject (Object* parent);
 
 #endif

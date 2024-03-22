@@ -1,4 +1,4 @@
-#include "symbol1.h"
+#include "symbol.h"
 #include "language.h"
 
 #include "words.h"
