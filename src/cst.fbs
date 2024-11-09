@@ -1,0 +1,7 @@
+
+// FlatBuffers IDL definition of the
+// Cat Symbol Table format
+
+file_identifier "cmo";
+
+namespace CST;

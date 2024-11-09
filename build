@@ -1,7 +1,13 @@
 #!/bin/bash
 
-CFLAGS="-Wno-c++11-compat-deprecated-writable-strings"
+CFLAGS="-Wno-c++11-extensions -Wno-c++11-compat-deprecated-writable-strings"
 
-clang++ -std=c++98 -c src/*.cc -I include -I src/cext -g3 $CFLAGS
+clang++ -std=c++98 -c src/*.cc -I include -I src/cext \
+	-g3 -fcolor-diagnostics -ferror-limit=100 \
+	$CFLAGS 2>&1 $(RESULT=$?) | less -R
+
+echo $RESULT
+#[[ ! $RESULT == "0" ]] && exit
+
 clang++ *.o -o mcatc -g3
 rm *.o
