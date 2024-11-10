@@ -3,10 +3,9 @@
 
 #include "trie.h"
 #include "words.h"
-//#include "symbol.h"
-#include "cst.h"
+#include "parse.h"
 
-using namespace CST;
+using namespace CatLang;
 
 // map type names to int values
 TrieN <char, int> typeids;
