@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "trie.h"
-#include "words.h"
+#include "token.h"
 #include "parse.h"
 
 using namespace CatLang;
@@ -14,17 +14,17 @@ TrieN <char, int> ids;
 
 void dummyParse (FILE* in)
 {
-	int idIdx = Word::LABEL + 1;
+	int idIdx = Token::LABEL + 1;
 	
 	source = in;
 	Scanner scanner;
 	
 	for (int i = 0; (1); ++i)
 	{
-			Word w = scanner.get ();
+			Token w = scanner.get ();
 			int id = w.id;
 			
-			if (w.id == Word::LABEL)
+			if (w.id == Token::LABEL)
 			{
 				int err;
 				id = ids.find (w.str, 0, &err);
@@ -34,7 +34,7 @@ void dummyParse (FILE* in)
 					ids.insert (w.str, (char)0, idIdx++);
 			}
 			
-			if (w.id == Word::ID(-1)) break;
+			if (w.id == Token::ID(-1)) break;
 			printf ("%u\t\t%s\n", (unsigned short)(id), (char*)w.str);
 	}
 }

@@ -22,6 +22,24 @@ leastN_t(8) leastN_t(16) leastN_t(32) leastN_t(64)
 fast_t()
 least_t()
 
+#undef fastN
+#undef leastN
+#undef fastN_t
+#undef leastN_t
+#undef fast_t
+#undef least_t
+
 #define until(...) while( ! (__VA_ARGS__) )
+
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef int8 byte;
 
 #endif

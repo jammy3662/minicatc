@@ -2,19 +2,20 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "words.h"
+#include "token.h"
 #include "container.h"
 
-const char* doubleOperators = ".<>+=-/&|;";
+const char* doubleOperators = ".<>+=-/&|";
 const char* tripleOperators = ".<>";
+const char* assignOperators = "+-*/%&^|";
 
 FILE* source;
 
-typedef Word::ID ID;
+typedef Token::ID ID;
 
-Word getnumber (char first)
+Token getnumber (char first)
 {
-	Word w;
+	Token w;
 	w.id = w.INT_LIT;
 	
 	array<char> str = {};
@@ -72,7 +73,7 @@ readone:
 	if (not (c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'f' || c == 'F'))
 	{
 		// found a non-number character, non-suffix
-		// put it back and end the word
+		// put it back and end the token
 		ungetc (c, source);
 	}
 	
@@ -82,9 +83,9 @@ readone:
 	return w;
 }
 
-Word getstring (char delim)
+Token getstring (char delim)
 {
-	Word w;
+	Token w;
 	
 	(delim == '"')
 	?	w.id = w.STR_LIT
@@ -115,9 +116,9 @@ nextc:
 	return w;
 }
 
-Word getalpha (char first)
+Token getalpha (char first)
 {
-	Word w;
+	Token w;
 	
 	array<char> str = {};
 	
@@ -156,9 +157,9 @@ update:
 	return w;
 }
 
-Word getlinecom ()
+Token getlinecom ()
 {
-	Word w;
+	Token w;
 	w.id = w.COM_LINE;
 	
 	array<char> str = {};
@@ -192,9 +193,9 @@ Word getlinecom ()
 	return w;
 }
 
-Word getblockcom ()
+Token getblockcom ()
 {
-	Word w;
+	Token w;
 	w.id = w.COM_BLOCK;
 	
 	array<char> str = {};
@@ -229,9 +230,9 @@ Word getblockcom ()
 	return w;
 }
 
-int get2 (char op, Word* _word_)
+int get2 (char op, Token* _token_)
 {
-	Word w;
+	Token w;
 	w.id = ID(op);
 	
 	array<char> str = {};
@@ -242,7 +243,7 @@ int get2 (char op, Word* _word_)
 	
 	if (op == next)
 		str.append (op),
-		w.id = ID (w.id | WordDOUBLEOPBit);
+		w.id = ID (w.id + Token::x2);
 	else
 	{
 		ungetc (next, source);
@@ -253,13 +254,13 @@ finish:
 	str.append (0);
 	str.shrink();
 	w.str = str;
-	*_word_ = w;
+	*_token_ = w;
 	return 1;
 }
 
-int get3 (char op, Word* _word_)
+int get3 (char op, Token* _token_)
 {
-	Word w;
+	Token w;
 	w.id = ID(op);
 	
 	array<char> str = {};
@@ -275,7 +276,7 @@ int get3 (char op, Word* _word_)
 	if (op == next == follow)
 		str.append (op),
 		str.append (op),
-		w.id = ID (w.id | WordTRIPLEOPBit);
+		w.id = ID (w.id + Token::x3);
 	else
 	{
 		ungetc (follow, source),
@@ -287,18 +288,18 @@ finish:
 	str.append (0);
 	str.shrink();
 	w.str = str;
-	*_word_ = w;
+	*_token_ = w;
 	return 1;
 }
 
-array <Word> buf = {};
+array <Token> buf = {};
 
-Word getword ()
+Token gettoken ()
 {
-	Word w;
+	Token w;
 	w.id = ID(EOF);
 	
-	// if words were put back earlier, use those first
+	// if tokens were put back earlier, use those first
 	if (buf.count > 0)
 {
 	w = buf [buf.count - 1];
@@ -309,7 +310,7 @@ Word getword ()
 	
 	array<char> str = {};
 	
-	if (source == 0x0)
+	if (source == NULL)
 	{
 		fprintf (stderr, "File didn't open\n");
 		return w;
@@ -346,7 +347,7 @@ Word getword ()
 
 	multiop:
 	{
-		Word test;
+		Token test;
 		
 		const char *op;
 			op = strchr (tripleOperators, c);
@@ -362,100 +363,115 @@ Word getword ()
 	return w;
 }
 
-void putwordback (Word w)
+void puttokenback (Token w)
 {
 	buf.append (w);
 }
 
-bool Word::isSyntax ()
+TokenType typeOf (Token t)
 {
-	return (id < INT_LIT);
+	switch (t.id)
+	{
+		case Token::LABEL:
+		case Token::PLACEHOLDER:
+			return TokenType::LABEL;
+		
+		case Token::INT_LIT:
+		case Token::FLOAT_LIT:
+		case Token::CHAR_LIT:
+		case Token::STR_LIT:
+			return TokenType::LITERAL;
+		
+		case Token::COM_LINE:
+		case Token::COM_BLOCK:
+			return TokenType::COMMENT;
+		
+		case (EOF):
+			return TokenType::NONE;
+		
+		default:
+			return TokenType::PUNCTUATION;
+	}
 }
 
-bool Word::isLiteral ()
+// get non-comment tokens
+Token gettokenc ()
 {
-	return (id >= INT_LIT && id <= STR_LIT);
-}
-
-bool Word::isLabel ()
-{
-	return (id == LABEL);
-}
-
-bool Word::isEmpty ()
-{
-	return (id >= PLACEHOLDER && id <= COM_BLOCK);
-}
-
-bool Word::isInvalid ()
-{
-	return (id == ID(EOF));
-}
-
-// get non-comment words
-Word getwordc ()
-{
-	Word word;
+	Token token;
 	do
 	{
-		word = getword ();
+		token = gettoken ();
 	}
-	while (word.id == word.COM_LINE || word.id == word.COM_BLOCK);
+	while (token.id == token.COM_LINE || token.id == token.COM_BLOCK);
 
-	return word;
+	return token;
 }
-
-array<Word> Scanner::source = {};
 
 Scanner::~Scanner ()
 {
-	if (putback)
+	if (undoAfter)
 	{
 		// put tokens back in the same order as they started in
-		for (int i = buffer.count-1; i >= 0; --i)
+		for (fast i = buffer.count-1; i >= 0; --i)
 		{
-			source.append (buffer [i]);
+			puttokenback (buffer [i]);
 		}
 	}
 	
 	buffer.clear ();
 }
 
-Word Scanner::get (bool discardComments)
+Token Scanner::get (bool discardComments)
 {
-	while (source.count > 0)
-		if (not source [--source.count].isEmpty())
-			return source [source.count];
+	fast available = buffer.count-consumed;
 	
-	while (buffer.count > 0)
-		if (not buffer [--buffer.count].isEmpty())
-			return buffer [buffer.count];
-	
-	return getwordc ();
-}
-
-Word Scanner::top (bool discardComments)
-{
-	Word result = {};
-	
-	for (int idx = source.count - 1; idx > 0; --idx)
+	if (available < 1)
 	{
-		if (! source [idx].isEmpty()) return source [idx];
-	}
-	for (int idx = buffer.count - 1; idx > 0; --idx)
-	{
-		if (! buffer [idx].isEmpty()) return buffer [idx];
+		Token result = gettoken ();
+		
+		if (discardComments)
+			while (typeOf (result) == TokenType::COMMENT)
+				result = gettoken ();
+		
+		buffer.append (result);
+		consumed++;
+		
+		return result;
 	}
 	
-	// if word is from file directly,
-	// take it and copy it back to peek
-	result = getwordc();
-	source.append (result);
+	fast top = available-1;
+	Token result = buffer [top];
+	
+	if (discardComments)
+	 while (typeOf (result) == TokenType::COMMENT)
+		consumed++,
+		top--,
+		result = buffer [top];
 	
 	return result;
 }
 
-void Scanner::unget (Word w)
+Token Scanner::top (bool discardComments)
+{
+	Token result = {};
+	
+	fast top = (buffer.count-1) - consumed;
+	if (top < 0) return (Token){};
+	
+	for (fast idx = buffer.count - 1; idx > 0; --idx)
+	{
+		if (typeOf (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
+	}
+	
+	// if token is from file directly,
+	// take it and copy it back to peek
+	result = gettokenc();
+	buffer.append (result);
+	
+	return result;
+}
+
+void Scanner::unget (Token w)
 {
 	buffer.append (w);
 }

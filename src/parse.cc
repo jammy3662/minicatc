@@ -1,160 +1,46 @@
 #include "parse.h"
-#include "words.h"
-#include "expression.h"
+#include "token.h"
 
-typedef Word::ID ID;
+typedef Token::ID ID;
 
 namespace CatLang
 {
-	Symbol* parseLabel (Word word, Symbol* scope)
+	Symbol* parseLabel (Token token, Symbol* scope)
 	{
-		Symbol* label = new Symbol;
-		scope->insert (label);
-		
-		return label;
+		// TODO: check for language keywords
+		// then determine what definition is referenced
 	}
-
-	Symbol* parseLiteral (Word literal, Symbol* scope)
-	{
-		Literal* res = new Literal;
-		scope->insert (res);
-		
-		res->type = Symbol::VALUE;
-		
-		switch (literal.id)
-		{
-			default: break;
-			case (ID::INT_LIT):
-				res->Int = atoll (literal.str);
-				break;
-			case (ID::FLOAT_LIT):
-				res->Float = atof (literal.str);
-				break;
-			case (ID::STR_LIT):
-			case (ID::CHAR_LIT):
-				res->Str = literal.str;
-				break;
-		}
-		
-		return res;
-	}
-
-	Expression* parseExpression (Symbol* scope)
-	{
-		Scanner scanner = {};
-		scanner.putback = true;
-		Word first = scanner.get();
-		
-		Expression* expr = new Expression;
-		scope->insert (expr);
-		
-		expr->type = Symbol::OPERATION;
-		expr->opcode = 0;
-		
-		if (isPrefixOperator (first))
-		{
-			expr->position = Expression::PREFIX;
-			expr->opcode = first.id;
-			
-			Expression* sub = parseExpression (expr);
-			expr->operand = sub;
-			
-			// apply the unary operation before
-			// the subexpression, unless also unary
-			if (-expr->priority() > -sub->priority())
-			{
-				std::swap (expr->rightSide, sub->leftSide);
-			}
-			
-			return expr;
-		}
-		
-		if (first.isLabel())
-			expr->leftSide = parseLabel (first, expr);
-		else
-		if (first.isLiteral())
-			expr->leftSide = parseLiteral (first, expr);
-		
-		if (expr->leftSide == (0))
-		{
-			// no operand and no prefix operator
-			// empty expression
-			scanner.unget (first);
-			return expr;
-		}
-
-		Word next = scanner.get();
-		expr->opcode = next.id;
-		
-		if (isPostfixOperator (next))
-		{
-			expr->position = Expression::POSTFIX;
-			
-			// handle any trailing postfix operators
-			// (something like num++--, contrived as it is)
-			next = scanner.get();
-			Symbol* outer = expr;
-			while (isPostfixOperator (next))
-			{
-				Expression* sub = new Expression;
-				outer->insert (sub);
-				
-				sub->type = Symbol::OPERATION;
-				sub->position = Expression::POSTFIX;
-				sub->opcode = next.id;
-				sub->operand = outer;
-				
-				outer = sub;
-				next = scanner.get();
-			}
-			
-			return expr;
-		}
-		if (isInfixOperator (next))
-		{
-			expr->position = Expression::INFIX;
-			
-			Expression* sub = parseExpression (expr);
-			expr->rightSide = sub;
-			
-			// if the suboperation has lower priority,
-			// swap the associativity
-			if (-expr->priority() > -sub->priority())
-			{
-				std::swap (expr->rightSide, sub->leftSide);
-			}
-			return expr;
-		}
-		
-		scanner.unget (next);
-		return expr;
-	}
-
-	Symbol* parseSymbol (Symbol* scope)
+	
+	void parseSymbol (Symbol* scope)
 	{
 		Scanner scanner = {};
 		
-		Word first = scanner.top();
+		Token token;
 		
-		if (first.id == ID(EOF)) return (Symbol*)(0);
+		firsttoken:
 		
-		if (isOperator (first) or
-				first.isLiteral() )
+		token = scanner.get();
+		
+		switch (typeOf (token))
 		{
-			return parseExpression (scope);
+			case TokenType::LABEL:
+				return parseLabel (token, scope);
+			
+			case TokenType::LITERAL:
+				return parseLiteral (token, scope);
+			
+			case TokenType::COMMENT:
+				// for now, ignore comments
+				goto firsttoken;
+			
+			case TokenType::NONE:
+				// end of file reached, stop parsing
+				break;
+			
+			case TokenType::PUNCTUATION:
+				return parsePunctuation	(token, scope);
 		}
 		
-		if (ID::GROUP_L == first.id)
-		{
-			//Word next = scanner.get();
-			
-			
-		}
-		
-		Symbol* empty = new Symbol;
-		scope->insert (empty);
-		empty->type = (enum Symbol::type) 0;
-		return empty;
 	}
 
 	Symbol parseSource ()
@@ -163,7 +49,7 @@ namespace CatLang
 		
 		Symbol*	next;
 		do next = parseSymbol (&root); 
-		until ((Symbol*)0 == next);
+		until (next == NULL);
 		
 		return root;
 	}
