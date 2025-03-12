@@ -2,13 +2,15 @@
 
 CFLAGS="-Wno-c++11-extensions -Wno-c++11-compat-deprecated-writable-strings"
 
+CLANG_FILTER="grep -v 'In file included'"
+
 clang++ -std=c++98 -c src/*.cc -I include -I src/cext \
 	-g3 -fcolor-diagnostics -ferror-limit=100 \
 	$CFLAGS 2>&1 $(RESULT=$?) \
-#	| less -R
+	| grep -v 'In file included'
 
 echo $RESULT
 [[ -z $RESULT ]] && exit
 
-clang++ *.o -o mcatc -g3
+clang++ *.o -o mcatc -g3 | grep -v 'In file included'
 rm *.o

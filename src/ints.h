@@ -42,4 +42,10 @@ typedef uint64_t uint64;
 
 typedef int8 byte;
 
+#ifdef LONG_LONG_MAX
+	#define most long long
+#else
+	#define most long
+#endif
+
 #endif

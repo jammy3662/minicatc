@@ -1,54 +1,23 @@
 #ifndef SYMBOL_DOT_H
 #define SYMBOL_DOT_H
 
-#include "../ints.h"
-#include "../list.h"
-
-#include <vector>
-#include <map>
-#include <string>
+#include "symbol.def.h"
 
 namespace CatLang {
 
-// TODO: replace C++ STL functionality
-template <typename Key, typename Val>
-using table = std::multimap <Key, Val>;
-
-enum SymbolType
-{
-	INVALID = 0,
-	PLACEHOLDER,
-	
-	VARIABLE, // data object
-	EXPRESSION, // operation on object(s)
-	CONTAINER, // arbitrary structures
-	
-	ALIAS, // copy of existing symbol
-	MACRO, // symbol with compile parameters (analagous to templates in c++)
-	TEMPLATE = MACRO,
-};
-
-struct Variable;
-struct Expression;
-struct Container;
-
 struct Symbol
 {
-	struct Error
-	{
+	struct Error {
 		char* message;	
 		least severity;
-		least code;
-	};
+		least code; }
+	error;
 	
 	// internal representation for comments
-	struct Note
-	{
-		char* text;
-	};
+	struct Note {
+		char* text; }
+	comment;
 	
-	Error error;
-	Note comment;
 	char* name;
 	
 	Container* parent;
@@ -64,6 +33,12 @@ struct Type
 {
 	enum DataType
 	{
+		//- Special types -//
+		VOID = 0,
+		
+		STRUCTURED, // struct, union, or enum
+		FUNCTION,
+		
 		//- Arithmetic types -//
 		CHAR,
 		SHORT,
@@ -73,12 +48,6 @@ struct Type
 		FLOAT,
 		DOUBLE,
 		DOUBLE_L, // double long
-		
-		//- Special types -//
-		VOID,
-		
-		STRUCTURED, // struct, union, or enum
-		FUNCTION,
 	};
 	
 	struct Qualifiers
@@ -100,11 +69,11 @@ struct Type
 			IMAGINARY = 3,
 		};
 		byte MATH: 2;
-	};
+	}
+	qualifiers;
 	
 	Container* structure; // struct, union, function, or enum
-	DataType datatype;
-	Qualifiers qualifiers;
+	byte datatype;
 	byte indirection; // pointers (# of)
 };
 
@@ -124,7 +93,8 @@ struct Expression: Symbol
 		
 		LITERAL, // handwritten or constant value
 		BLOCK, // stack frame to evaluate within
-		LABEL, // marks the next expression
+		MARKER, // marks the next expression
+		VALUEOF, // variable access
 		
 		// selection and control expressions
 		SWICH, IF, IF_ELSE, WHILE, DO_WHILE,
@@ -197,21 +167,20 @@ struct Expression: Symbol
 	
 	union Literal
 	{
-		long long int i, Int;
+		most int i, Int;
 		double f, Float;
 		char* str,* Str;
 		char c, Char;
 	};
 
-	Type result; // resulting datatype of operation between two arbitrary types
+	Type result; // resulting datatype of operation
+	std::vector <Expression> subexpressions;
 	Opcode opcode;
 	
-	union
-	{
+	union {
 		Expression* operand [2];
 		Literal literal;
-		Container* stackframe;
-	};
+		Reference label; };
 };
 
 // complex object (with fields/locals)
@@ -221,18 +190,14 @@ struct Expression: Symbol
 // - union
 // - function
 // - stack frame
+// - tuple (stripped-down struct)
 struct Container: Symbol
 {
-	enum ContainerType
-	{
-		STRUCT, MODULE, UNION, FUNCTION 
-	};
-	
 	std::vector <Variable> locals;
-	std::vector <Expression> expressions;
+	std::vector <Expression> expressions; // expressions defined at this scope (subexpressions are stored within each expression)
 	std::vector <Container> definitions;
 	
-	// references to internal array elements
+	// refers to locals, expressions, and definitions
 	std::vector <Reference> members;
 	
 	//- function-related -//

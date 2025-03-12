@@ -14,7 +14,7 @@ TrieN <char, int> ids;
 
 void dummyParse (FILE* in)
 {
-	int idIdx = Token::LABEL + 1;
+	int idIdx = TokenID::LABEL + 1;
 	
 	source = in;
 	Scanner scanner;
@@ -24,7 +24,7 @@ void dummyParse (FILE* in)
 			Token w = scanner.get ();
 			int id = w.id;
 			
-			if (w.id == Token::LABEL)
+			if (w.id == TokenID::LABEL)
 			{
 				int err;
 				id = ids.find (w.str, 0, &err);
@@ -34,7 +34,7 @@ void dummyParse (FILE* in)
 					ids.insert (w.str, (char)0, idIdx++);
 			}
 			
-			if (w.id == Token::ID(-1)) break;
+			if (w.id == TokenID(-1)) break;
 			printf ("%u\t\t%s\n", (unsigned short)(id), (char*)w.str);
 	}
 }

@@ -5,51 +5,58 @@ typedef Token::ID ID;
 
 namespace CatLang
 {
-	Symbol* parseLabel (Token token, Symbol* scope)
+	struct ParseError {};
+	
+	Reference parseLabel (Token token, Container* scope)
 	{
 		// TODO: check for language keywords
 		// then determine what definition is referenced
 	}
 	
-	void parseSymbol (Symbol* scope)
+	Reference parseConstant (Token token, Container* scope)
+	{
+		
+	}
+	
+	void parseSymbol (Container* scope)
 	{
 		Scanner scanner = {};
 		
 		Token token;
 		
-		firsttoken:
-		
+		readtoken:
 		token = scanner.get();
 		
-		switch (typeOf (token))
+		switch (tokenType (token))
 		{
-			case TokenType::LABEL:
-				return parseLabel (token, scope);
+			case TokenType::NAME:
+				parseLabel (token, scope);
+				return;
 			
 			case TokenType::LITERAL:
-				return parseLiteral (token, scope);
+				parseConstant (token, scope);
+				return;
 			
 			case TokenType::COMMENT:
 				// for now, ignore comments
-				goto firsttoken;
+				goto readtoken;
+			
+			case TokenType::PUNCTUATION:
+				parsePunctuation	(token, scope);
+				return;
 			
 			case TokenType::NONE:
 				// end of file reached, stop parsing
-				break;
-			
-			case TokenType::PUNCTUATION:
-				return parsePunctuation	(token, scope);
+				return;
 		}
 		
 	}
 
-	Symbol parseSource ()
+	Container parseSource ()
 	{
-		Symbol root = {};
+		Container root;
 		
-		Symbol*	next;
-		do next = parseSymbol (&root); 
-		until (next == NULL);
+		parseSymbol (&root);
 		
 		return root;
 	}

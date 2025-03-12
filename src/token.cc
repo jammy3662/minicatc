@@ -11,12 +11,12 @@ const char* assignOperators = "+-*/%&^|";
 
 FILE* source;
 
-typedef Token::ID ID;
+typedef TokenID ID;
 
 Token getnumber (char first)
 {
 	Token w;
-	w.id = w.INT_LIT;
+	w.id = ID::INT_LIT;
 	
 	array<char> str = {};
 	str.append (first);
@@ -48,7 +48,7 @@ readone:
 	}
 	if (c == '.' && not hasDecimal && not hasPrefix)
 	{
-		w.id = w.FLOAT_LIT;
+		w.id = ID::FLOAT_LIT;
 		hasDecimal = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -56,7 +56,7 @@ readone:
 	}
 	if (c == 'e' || c == 'E' &&	not hasExponent && not hasPrefix)
 	{
-		w.id = w.FLOAT_LIT;
+		w.id = ID::FLOAT_LIT;
 		hasExponent = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -88,8 +88,8 @@ Token getstring (char delim)
 	Token w;
 	
 	(delim == '"')
-	?	w.id = w.STR_LIT
-	: w.id = w.CHAR_LIT;
+	?	w.id = ID::STR_LIT
+	: w.id = ID::CHAR_LIT;
 	
 	array<char> str = {};
 	
@@ -128,7 +128,7 @@ Token getalpha (char first)
 	// essentially ignores the symbol outside of its declaration
 	if (c == '_')
 	{
-		w.id = w.PLACEHOLDER;
+		w.id = ID::UNDERSCORE;
 		str.append (c);
 		c = fgetc (source);
 		goto update;
@@ -136,7 +136,7 @@ Token getalpha (char first)
 	
 nextletter:
 
-	w.id = w.LABEL;
+	w.id = ID::LABEL;
 	
 update:
 
@@ -160,7 +160,7 @@ update:
 Token getlinecom ()
 {
 	Token w;
-	w.id = w.COM_LINE;
+	w.id = ID::COM_LINE;
 	
 	array<char> str = {};
 	
@@ -196,7 +196,7 @@ Token getlinecom ()
 Token getblockcom ()
 {
 	Token w;
-	w.id = w.COM_BLOCK;
+	w.id = ID::COM_BLOCK;
 	
 	array<char> str = {};
 	
@@ -243,7 +243,7 @@ int get2 (char op, Token* _token_)
 	
 	if (op == next)
 		str.append (op),
-		w.id = ID (w.id + Token::x2);
+		w.id = ID (w.id + ID::x2);
 	else
 	{
 		ungetc (next, source);
@@ -276,7 +276,7 @@ int get3 (char op, Token* _token_)
 	if (op == next == follow)
 		str.append (op),
 		str.append (op),
-		w.id = ID (w.id + Token::x3);
+		w.id = ID (w.id + ID::x3);
 	else
 	{
 		ungetc (follow, source),
@@ -368,22 +368,22 @@ void puttokenback (Token w)
 	buf.append (w);
 }
 
-TokenType typeOf (Token t)
+TokenType tokenType (Token t)
 {
 	switch (t.id)
 	{
-		case Token::LABEL:
-		case Token::PLACEHOLDER:
-			return TokenType::LABEL;
+		case ID::LABEL:
+		case ID::UNDERSCORE:
+			return TokenType::NAME;
 		
-		case Token::INT_LIT:
-		case Token::FLOAT_LIT:
-		case Token::CHAR_LIT:
-		case Token::STR_LIT:
+		case ID::INT_LIT:
+		case ID::FLOAT_LIT:
+		case ID::CHAR_LIT:
+		case ID::STR_LIT:
 			return TokenType::LITERAL;
 		
-		case Token::COM_LINE:
-		case Token::COM_BLOCK:
+		case ID::COM_LINE:
+		case ID::COM_BLOCK:
 			return TokenType::COMMENT;
 		
 		case (EOF):
@@ -402,7 +402,7 @@ Token gettokenc ()
 	{
 		token = gettoken ();
 	}
-	while (token.id == token.COM_LINE || token.id == token.COM_BLOCK);
+	while (token.id == ID::COM_LINE || token.id == ID::COM_BLOCK);
 
 	return token;
 }
@@ -430,7 +430,7 @@ Token Scanner::get (bool discardComments)
 		Token result = gettoken ();
 		
 		if (discardComments)
-			while (typeOf (result) == TokenType::COMMENT)
+			while (tokenType (result) == TokenType::COMMENT)
 				result = gettoken ();
 		
 		buffer.append (result);
@@ -443,7 +443,7 @@ Token Scanner::get (bool discardComments)
 	Token result = buffer [top];
 	
 	if (discardComments)
-	 while (typeOf (result) == TokenType::COMMENT)
+	 while (tokenType (result) == TokenType::COMMENT)
 		consumed++,
 		top--,
 		result = buffer [top];
@@ -460,7 +460,7 @@ Token Scanner::top (bool discardComments)
 	
 	for (fast idx = buffer.count - 1; idx > 0; --idx)
 	{
-		if (typeOf (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
+		if (tokenType (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
 	}
 	
 	// if token is from file directly,
