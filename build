@@ -1,6 +1,12 @@
 #!/bin/bash
 
-CFLAGS="-Wno-c++11-extensions -Wno-c++11-compat-deprecated-writable-strings"
+rm -rf .vscode # clear away junk
+
+CFLAGS="\
+-fcolor-diagnostics \
+-fno-caret-diagnostics \
+-Wno-c++11-extensions -Wno-c++11-compat-deprecated-writable-strings \
+-Wno-missing-declarations -Wno-empty-body"
 
 CLANG_FILTER="grep -v 'In file included'"
 
@@ -10,7 +16,11 @@ clang++ -std=c++98 -c src/*.cc -I include -I src/cext \
 	| grep -v 'In file included'
 
 echo $RESULT
-[[ -z $RESULT ]] && exit
+if [[ ! -z $RESULT ]]
+then
+	rm *.o
+	exit
+fi
 
 clang++ *.o -o mcatc -g3 | grep -v 'In file included'
 rm *.o

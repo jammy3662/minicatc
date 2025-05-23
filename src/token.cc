@@ -13,10 +13,29 @@ FILE* source;
 
 typedef TokenID ID;
 
+long line, column;
+
+char fgetc_lc (FILE* f)
+{
+	char c = fgetc (f);
+	
+	if (c == '\n') line++;
+	column++;
+	
+	return c;
+}
+
+#define fgetc(F) fgetc_lc (F)
+
+void SetSource (FILE* fp)
+{
+	source = fp;
+}
+
 Token getnumber (char first)
 {
 	Token w;
-	w.id = ID::INT_LIT;
+	w.id = ID::INT_CONST;
 	
 	array<char> str = {};
 	str.append (first);
@@ -48,7 +67,7 @@ readone:
 	}
 	if (c == '.' && not hasDecimal && not hasPrefix)
 	{
-		w.id = ID::FLOAT_LIT;
+		w.id = ID::FLOAT_CONST;
 		hasDecimal = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -56,7 +75,7 @@ readone:
 	}
 	if (c == 'e' || c == 'E' &&	not hasExponent && not hasPrefix)
 	{
-		w.id = ID::FLOAT_LIT;
+		w.id = ID::FLOAT_CONST;
 		hasExponent = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -88,8 +107,8 @@ Token getstring (char delim)
 	Token w;
 	
 	(delim == '"')
-	?	w.id = ID::STR_LIT
-	: w.id = ID::CHAR_LIT;
+	?	w.id = ID::STR_CONST
+	: w.id = ID::CHAR_CONST;
 	
 	array<char> str = {};
 	
@@ -136,7 +155,7 @@ Token getalpha (char first)
 	
 nextletter:
 
-	w.id = ID::LABEL;
+	w.id = ID::NAME;
 	
 update:
 
@@ -318,6 +337,9 @@ Token gettoken ()
 	
 	char c = fgetc (source);
 	
+	w.loc.line = line;
+	w.loc.column = column;
+	
 	while (isblank(c) || iscntrl(c))
 		c = fgetc (source);
 	
@@ -368,19 +390,19 @@ void puttokenback (Token w)
 	buf.append (w);
 }
 
-TokenType tokenType (Token t)
+TokenType TypeOf (Token t)
 {
 	switch (t.id)
 	{
-		case ID::LABEL:
+		case ID::NAME:
 		case ID::UNDERSCORE:
-			return TokenType::NAME;
+			return TokenType::LABEL;
 		
-		case ID::INT_LIT:
-		case ID::FLOAT_LIT:
-		case ID::CHAR_LIT:
-		case ID::STR_LIT:
-			return TokenType::LITERAL;
+		case ID::INT_CONST:
+		case ID::FLOAT_CONST:
+		case ID::CHAR_CONST:
+		case ID::STR_CONST:
+			return TokenType::CONSTANT;
 		
 		case ID::COM_LINE:
 		case ID::COM_BLOCK:
@@ -430,7 +452,7 @@ Token Scanner::get (bool discardComments)
 		Token result = gettoken ();
 		
 		if (discardComments)
-			while (tokenType (result) == TokenType::COMMENT)
+			while (TypeOf (result) == TokenType::COMMENT)
 				result = gettoken ();
 		
 		buffer.append (result);
@@ -443,7 +465,7 @@ Token Scanner::get (bool discardComments)
 	Token result = buffer [top];
 	
 	if (discardComments)
-	 while (tokenType (result) == TokenType::COMMENT)
+	 while (TypeOf (result) == TokenType::COMMENT)
 		consumed++,
 		top--,
 		result = buffer [top];
@@ -460,7 +482,7 @@ Token Scanner::top (bool discardComments)
 	
 	for (fast idx = buffer.count - 1; idx > 0; --idx)
 	{
-		if (tokenType (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
+		if (TypeOf (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
 	}
 	
 	// if token is from file directly,

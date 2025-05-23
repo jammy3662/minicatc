@@ -31,6 +31,7 @@ least_t()
 
 #define until(...) while( ! (__VA_ARGS__) )
 
+#ifdef INTS_CLASSIC
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
@@ -39,8 +40,18 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+#else
+#define int1 int8_t 
+#define int2 int16_t
+#define int4 int32_t
+#define int8 int64_t
+#define uint1 uint8_t 
+#define uint2 uint16_t
+#define uint4 uint32_t
+#define uint8 uint64_t
+#endif
 
-typedef int8 byte;
+#define byte char
 
 #ifdef LONG_LONG_MAX
 	#define most long long

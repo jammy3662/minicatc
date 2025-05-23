@@ -1,9 +1,12 @@
 #ifndef TOKEN_DEF_H
 #define TOKEN_DEF_H
 
+#include <stdio.h>
+
 enum TokenID
 {
 	// Shortcut: storing symbols like '(' and ';' as their literal values
+	
 	PAREN_L = '(', // (
 		PAREN = PAREN_L, // ()
 	PAREN_R = ')', // )
@@ -15,9 +18,9 @@ enum TokenID
 	
 	BANG = '!', // !
 	HASH = '#', // #
-	USD = '$', // $
+	USD = '$', DOLLAR = USD, // $
 	MOD = '%', // %
-	AND = '&', // &
+	AMP = '&', // &
 	STAR = '*', // *
 	PLUS = '+', // +
 	COMMA = ',', // ,
@@ -33,14 +36,14 @@ enum TokenID
 	AT = '@', // @
 	POWER = '^', // ^
 	UNDERSCORE = '_', // _
-	OR = '|', // |
+	PIPE = '|', // |
 	TILDE = '~', // ~
 	
 	x2 = 128,
 	x3 = 256,
 	
-	ANDx2 = AND + x2, // &&
-	ORx2 = OR + x2, // ||
+	AMPx2 = AMP + x2, // &&
+	PIPEx2 = PIPE + x2, // ||
 	PLUSx2 = PLUS + x2, // ++
 	MINUSx2 = MINUS + x2, // --
 	LEFTx2 = LEFT + x2, // <<
@@ -55,23 +58,25 @@ enum TokenID
 	
 	ARROW, // -> (legacy / c)
 	
-	LABEL,
+	NAME,
 	
-	INT_LIT,
-	FLOAT_LIT,
-	CHAR_LIT,
-	STR_LIT,
+	INT_CONST,
+	FLOAT_CONST,
+	CHAR_CONST,
+	STR_CONST,
 	
 	COM_LINE,
 	COM_BLOCK,
+	
+	END_FILE = EOF,
 };
 
 enum TokenType
 {
 	NONE,
-	NAME,
+	LABEL,
 	PUNCTUATION,
-	LITERAL,
+	CONSTANT,
 	COMMENT,
 };
 

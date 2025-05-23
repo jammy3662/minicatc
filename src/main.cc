@@ -14,9 +14,9 @@ TrieN <char, int> ids;
 
 void dummyParse (FILE* in)
 {
-	int idIdx = TokenID::LABEL + 1;
+	int idIdx = TokenID::NAME + 1;
 	
-	source = in;
+	SetSource (in);
 	Scanner scanner;
 	
 	for (int i = 0; (1); ++i)
@@ -24,7 +24,7 @@ void dummyParse (FILE* in)
 			Token w = scanner.get ();
 			int id = w.id;
 			
-			if (w.id == TokenID::LABEL)
+			if (w.id == TokenID::NAME)
 			{
 				int err;
 				id = ids.find (w.str, 0, &err);
@@ -43,7 +43,7 @@ int main (int argc, char** argv)
 {
 	FILE* in;
 	
-	source = stdin;
+	SetSource (stdin);
 	
 	for (int i = 0; i < argc; ++i)
 	{
@@ -62,9 +62,8 @@ int main (int argc, char** argv)
 			in = fopen (argv[i], "r");
 			if (!in) { fprintf (stderr, "File couldn't open (%s)\n", argv[i]); return 1; }
 			printf ("-- Parsing '%s' --\n", argv[i]);
-			source = in;
 			//dummyParse (in);
-			parseSource ();
+			ParseSource (in);
 			fclose (in);
 		}
 	}
@@ -72,9 +71,8 @@ int main (int argc, char** argv)
 	{
 		in = stdin;
 		printf ("mcatc - Reading from standard input\n");
-		source = in;
 		//dummyParse (in);
-		auto tree = parseSource ();
+		auto tree = ParseSource (in);
 		tree = tree;
 	}
 	

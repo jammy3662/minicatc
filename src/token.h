@@ -7,17 +7,26 @@
 #include "cext/container.h"
 #include "ints.h"
 
-extern FILE* source;
+void SetSource (FILE*);
+
+struct Location
+{
+	short line, column;
+	char* filePath;
+};
 
 struct Token
 {
-	typedef TokenID ID;
-	
-	ID id; // encompasses raw characters and enum values
+	TokenID id; // encompasses raw characters and enum values
+	Location loc;
 	array <char> str;
 };
 
-TokenType tokenType (Token);
+TokenType TypeOf (Token);
+
+inline
+bool TokenIs (TokenID tt, Token t)
+{ return t.id == tt; }
 
 struct Scanner
 {
