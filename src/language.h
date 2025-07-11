@@ -1,0 +1,35 @@
+#ifndef LANGUAGE_H
+#define LANGUAGE_H
+
+namespace CatLang {
+
+enum Keyword
+{
+	LOCAL,
+	STATIC,
+	CONST,
+	INLINE,
+	
+	SIGNED, UNSIGNED,
+	COMPLEX, IMAGINARY,
+	
+	INCLUDE,
+	
+	SIZEOF, TYPEOF,
+	COUNTOF, NAMEOF,
+	FIELDSOF,
+	
+	STRUCT, UNION,
+	ENUM, MODULE,
+	
+	IF, ELSE,
+	DO, WHILE, FOR,
+	SWITCH,
+	CASE, DEFAULT,
+	BREAK, CONTINUE,
+	RETURN
+};
+
+}
+
+#endif

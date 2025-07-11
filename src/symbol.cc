@@ -10,28 +10,23 @@ namespace CatLang {
 
 typedef TokenID ID;
 
-Reference RefFrom (Symbol* symbol)
+Symbol* lookup (char* name, Symbol* start)
 {
-	return {symbol, symbol->SymbolType, 0};
-}
-
-Symbol* lookup (char* name, Reference start)
-{
-	Scope* scope = (Scope*) start.Symbol;
+	Scope* scope = (Scope*) start;
 	
 	short NumMatches = scope->Namespace.count (name);
 	
-	while (NumMatches <= 0)
+	until (NumMatches > 0)
 	{
-		scope = (Scope*) scope->parent.Symbol;
-		if (scope == 0) return scope;
+		scope = (Scope*) scope->parent;
+		if (scope == 0) return (Symbol*) 0;
 		
 		NumMatches = scope->Namespace.count (name);
 	}
 	
 	auto index = scope->Namespace.upper_bound (name) -> second;
 	
-	return & scope->Locals [index];
+	return & ((Scope*)scope)->Fields [index];
 }
 
 Error Log (Error err, Symbol* scope)
@@ -39,21 +34,23 @@ Error Log (Error err, Symbol* scope)
 	scope->errors.push_back (err);
 }
 
-Error Log (char* message, byte level, Symbol* scope)
+Error Log (char* message, Location loc, Error::Level level, Symbol* scope)
 {
 	Error err;
 	err.message = message;
 	err.severity = level;
+	err.loc = loc;
 	
 	return Log (err, scope);
 }
 
-Error Log (char* message, byte level, int2 code, Symbol* scope)
+Error Log (char* message, Location loc, Error::Level level, Error::Code code, Symbol* scope)
 {
 	Error err;
 	err.message = message;
 	err.severity = level;
 	err.code = code;
+	err.loc = loc;
 	
 	return Log (err, scope);
 }

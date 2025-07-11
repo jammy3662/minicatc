@@ -1,7 +1,7 @@
 #ifndef TOKEN_DOT_H
 #define TOKEN_DOT_H
 
-#include "token.def.h"
+#include "token.def"
 
 #include <stdio.h>
 #include "cext/container.h"
@@ -30,7 +30,7 @@ bool TokenIs (TokenID tt, Token t)
 
 struct Scanner
 {
-	array <Token> buffer;
+	static array <Token> buffer;
 	fast consumed;
 	bool undoAfter;
 	

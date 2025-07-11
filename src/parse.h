@@ -2,15 +2,17 @@
 #define PARSE_DOT_H
 
 #include "symbol.h"
+#include "language.h"
 #include "cext/trie.h"
 
-namespace CatLang
-{
-	Trie <char, int2> keywords;
-	
-	// return the root of a syntax tree
-	Reference ParseSource (char*);
-	Reference ParseSource (FILE*);
+namespace CatLang {
+
+Trie <char, Keyword> keywords;
+
+// return the root of a syntax tree
+Scope ParseSource (char*);
+Scope ParseSource (FILE*);
+
 }
 
 #endif

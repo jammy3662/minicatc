@@ -57,6 +57,7 @@ namespace CatLang
 			case ID::LEFT: // less than
 			case ID::RIGHT: // more than
 			case ID::EQUAL:
+			case ID::TAIL: // range
 				ot.infix = true;
 			
 			default: break;
@@ -145,13 +146,8 @@ namespace CatLang
 
 	bool IsOperator (Token t)
 	{
-		return TypeOfOp (t).value != 0;
-		
-		return
-		IsInfixOperator(t) or
-		IsPrefixOperator (t) or
-		IsPostfixOperator (t) or
-		IsTerminalOperator (t);
+		auto type = TypeOfOp (t);
+		return not (type.infix or type.prefix or type.postfix);
 	}
 	
 	

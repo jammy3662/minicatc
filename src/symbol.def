@@ -1,0 +1,21 @@
+#ifndef SYMBOL_DEF
+#define SYMBOL_DEF
+
+#include <vector>
+#include <map>
+#include <string>
+
+#include "cext/ints.h"
+//#include "cext/list.h"
+
+// TODO: replace C++ STL functionality
+template <typename T>
+using Array = std::vector <T>;
+
+template <typename Key, typename Val>
+using Table = std::multimap <Key, Val>;
+
+using string = std::string;
+
+
+#endif
