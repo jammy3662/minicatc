@@ -6,17 +6,6 @@
 
 namespace CatLang {
 
-struct Symbol;
-
-// most references point directly to a symbol,
-// but unresolved references hold a path to be checked later
-struct Reference
-{
-	Symbol* Symbol;
-	byte SymbolType;
-	char* Path;
-};
-
 struct Tuple;
 
 struct Type
@@ -42,9 +31,12 @@ struct Type
 
 struct Scope;
 
+// TODO: sophisticated printf-style errors //
+// (this may unforunately necessitate variadic?) // 
 struct Error
 {
-	Location loc;
+	Token token;
+	Location& loc = token.loc;
 	char* message;
 	
 	enum Level
@@ -58,7 +50,7 @@ struct Error
 
 struct Symbol
 {
-	enum Type
+	enum Kind
 	{
 		INVALID = 0xFF, ANY = -1, EMPTY = 0,
 		
@@ -73,9 +65,10 @@ struct Symbol
 		TUPLE,
 		// scope types //
 		STRUCT, UNION, ENUM,
-		// control symbols //
+		// selection symbols //
 		IF, WHILE, FOR, SWITCH,
-		CONTINUE, BREAK, RETURN,
+		// jump symbols //
+		CONTINUE, BREAK, RETURN, GOTO,
 		
 		MACRO /* symbol with compile parameters (analagous to templates in c++) */,
 		TEMPLATE = MACRO,
@@ -91,18 +84,22 @@ struct Symbol
 	std::vector <Error> errors;
 	
 	char* name;
-	Type type;
+	Kind type;
 };
 
 struct Expression;
 
-struct Variable: Symbol
+struct Object: Symbol
 {
-	Type DataType;
+	Type datatype;
+};
+
+struct Variable: Object
+{
 	Expression* Initializer;
 };
 
-struct Expression: Symbol
+struct Expression: Object
 {
 	enum Opcode {
 	// NOTE: this implementation just copies
@@ -176,7 +173,7 @@ struct Expression: Symbol
 	};
 	
 	std::vector <Expression> subexpressions;
-	Type result; // resulting datatype of operation
+	Kind result; // resulting datatype of operation
 	
 	union Constant
 	{
@@ -188,8 +185,8 @@ struct Expression: Symbol
 	
 	union
 	{
-		Reference object;
-		Reference operands [2];
+		Object* object;
+		Object* operands [2];
 		
 		Constant literal;
 	};
@@ -199,12 +196,6 @@ struct Expression: Symbol
 	int2 right;
 	
 	byte opcode;
-};
-
-// return symbol
-struct Return: Symbol
-{
-	Expression* value;
 };
 
 //  access sizeof, typeof, countof, nameof, or fieldsof an object
@@ -232,10 +223,11 @@ struct Scope: Tuple
 	Array <Expression> Expressions;
 	Array <Scope> Definitions;
 	
+	Array <Symbol*> Members;
 	Table <string, Symbol*>	Aliases;
 	Table <string, fast> Gotos;
 	
-	Type Receiver; // for methods like int.sign()
+	Kind Receiver; // for methods like int.sign()
 	Tuple Parameters; // fields passed in for functions
 	
 	Variable Return;
@@ -244,20 +236,19 @@ struct Scope: Tuple
 	bool closed: 1; // true when } or ...
 };
 
-struct Conditional: Symbol
+struct Selection: Symbol
 {
 	
 };
-
-Reference RefFrom (Symbol* symbol);
 
 Symbol* findin (char* name, Symbol* scope); // look for a symbol only within the scope, not its outer scopes
 Symbol* lookup (char* name, Symbol* scope);
 Symbol* lookup (char* name, Symbol* scope, byte type);
 
-Error Log (char* message, Location, Error::Level level, Symbol* scope);
-Error Log (char* message, Location, Error::Level level, Error::Code code, Symbol* scope);
+Error Log (char* message, Token, Error::Level level, Symbol* scope);
+Error Log (char* message, Token, Error::Level level, Error::Code code, Symbol* scope);
 Error Log (Error err, Symbol* scope);
+
 }
 
 #endif

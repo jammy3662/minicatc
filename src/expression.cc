@@ -147,7 +147,7 @@ namespace CatLang
 	bool IsOperator (Token t)
 	{
 		auto type = TypeOfOp (t);
-		return not (type.infix or type.prefix or type.postfix);
+		return (type.infix or type.prefix or type.postfix);
 	}
 	
 	

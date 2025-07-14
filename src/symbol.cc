@@ -32,25 +32,26 @@ Symbol* lookup (char* name, Symbol* start)
 Error Log (Error err, Symbol* scope)
 {
 	scope->errors.push_back (err);
+	return err;
 }
 
-Error Log (char* message, Location loc, Error::Level level, Symbol* scope)
+Error Log (char* msg, Token t, Error::Level level, Symbol* scope)
 {
 	Error err;
-	err.message = message;
+	err.message = msg;
 	err.severity = level;
-	err.loc = loc;
+	err.token = t;
 	
 	return Log (err, scope);
 }
 
-Error Log (char* message, Location loc, Error::Level level, Error::Code code, Symbol* scope)
+Error Log (char* msg, Token t, Error::Level level, Error::Code code, Symbol* scope)
 {
 	Error err;
-	err.message = message;
+	err.message = msg;
 	err.severity = level;
 	err.code = code;
-	err.loc = loc;
+	err.token = t;
 	
 	return Log (err, scope);
 }

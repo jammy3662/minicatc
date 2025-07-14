@@ -5,15 +5,15 @@
 #include "cext/trie.h"
 
 #include <stack>
+#include <sstream>
 
 #define is ==
+#define isnt !=
 
 typedef TokenID ID;
 
 namespace CatLang
 {
-
-Scope ParseSource();
 
 Scope ParseSource (char* path)
 {
@@ -28,6 +28,7 @@ Scope ParseSource (char* path)
 	return ParseSource (fp);
 }
 
+Scope ParseSource();
 Scope ParseSource (FILE* sourceFile)
 {
 	if (not sourceFile) fprintf (stderr, "Failed to read a null file pointer\n");
@@ -43,31 +44,56 @@ Scope ParseSource ()
 {
 	Scope compile_unit;
 	
-	Symbol* next_symbol;
-	
-	do next_symbol = ParseStatement (&compile_unit);
-	while ((Symbol*) -1 != next_symbol);
+	while ((Symbol*) -1 isnt ParseStatement (&compile_unit));
 	
 	return compile_unit;
 }
 
-// ----------------------------------------------------------------
+// -------------------------------- //
 
 bool IsType (Symbol* symbol)
 {
 	return
-	Symbol::TUPLE <= symbol->type <=
-	Symbol::ENUM;
+	Symbol::TUPLE <= symbol->type and
+	Symbol::ENUM >= symbol->type;
 }
 
 bool IsObject (Symbol* symbol)
 {
 	return
-	Symbol::VARIABLE <= symbol->type <=
-	Symbol::MODULE;
+	Symbol::VARIABLE <= symbol->type and
+	Symbol::MODULE >= symbol->type;
 }
 
 std::vector <char*> LastComment;
+
+enum Keyword
+{
+	// meta
+	INCLUDE,
+	INLINE,
+	SIZEOF, COUNTOF,
+	NAMEOF, TYPEOF,
+	// storage //
+	LOCAL,
+	STATIC,
+	CONST,
+	// alu //
+	SIGNED, UNSIGNED,
+	COMPLEX, IMAGINARY,
+	// flow //
+	BREAK, CONTINUE, RETURN, GOTO,
+	// declaration //
+	STRUCT, UNION,
+	MODULE, ENUM,
+	// loop //
+	WHILE, DO_WHILE, FOR,
+	// selection //
+	IF, ELSE, SWITCH,
+	CASE, DEFAULT,
+};
+
+Trie <char, fast> keywords;
 
 struct Tag
 {
@@ -75,8 +101,6 @@ struct Tag
 	
 	enum Category
 	{
-		#define keyword(__) __ = Keyword:: ## __
-		
 		END_INPUT = -1,
 		
 		NEW_NAME,
@@ -89,44 +113,11 @@ struct Tag
 		STAR,
 		ACCESS,
 		SEPARATOR, // () {} [] ... ; //
-		// ---- KEYWORDS	---- //
-		// meta //
-		keyword (INCLUDE),
-		keyword (INLINE),
-		keyword (SIZEOF), keyword (COUNTOF),
-		keyword (NAMEOF), keyword (TYPEOF),
-		// storage //
-		keyword (LOCAL),
-		keyword (STATIC),
-		keyword (CONST),
-		// alu //
-		keyword (SIGNED), keyword (UNSIGNED),
-		keyword (COMPLEX), keyword (IMAGINARY),
-		// flow //
-		keyword (BREAK), keyword (CONTINUE), keyword (RETURN),
-		// declaration //
-		keyword (STRUCT), keyword (UNION),
-		keyword (MODULE), keyword (ENUM),
-		// loop //
-		keyword (WHILE), keyword (FOR),
-		// selection //
-		keyword (IF), keyword (ELSE), keyword (SWITCH),
-		keyword (CASE), keyword (DEFAULT),
-		
-		#undef keyword
+		KEYWORD,
 	}
 	category;
 	
-	union {
-	
-	enum Type
-	{
-		BUILTIN,
-		STRUCT = Symbol::STRUCT,
-		UNION = Symbol::UNION,
-		ENUM = Symbol::ENUM,
-	}
-	type;
+	Type type;
 	
 	enum Object
 	{
@@ -137,9 +128,11 @@ struct Tag
 	}
 	object;
 	
-	};
+	Keyword keyword;
 	
+	Array <string> path;
 	Symbol* reference;
+	bool nested;
 };
 
 Tag ParseNameTag (Scope*, Token);
@@ -170,10 +163,12 @@ Tag ParseTag (Scope* scope)
 	
 	case I::AT:
 	case I::DOLLAR:
-	case I::HASH:
+	case I::HASH: {
 	// unused tokens //
-	Log ("Ignoring unused character", token.loc, Error::Level::NOTE, scope);
-	goto get_token;
+	std::stringstream msg;
+	msg << "Ignoring unused character '"<<token.str.ptr<<"'\n";
+	Log ((char*) msg.str().c_str(), token, Error::Level::NOTE, scope);
+	goto get_token; }
 	
 	case I::END_FILE:
 	case I::ELLIPSES:
@@ -212,6 +207,9 @@ Tag ParseTag (Scope* scope)
 	case I::NAME:
 	
 	return ParseNameTag (scope, token);
+	
+	default:
+	return tag;
 	}
 }
 
@@ -224,11 +222,12 @@ Tag ParseNameTag (Scope* scope, Token token)
 	int IsntKeyword;
 	Keyword keyword;
 	
-	keyword = keywords.find (token.str, &IsntKeyword);
+	keyword = (Keyword) keywords.find (token.str, &IsntKeyword);
 	
 	if (not IsntKeyword)
 	{
-		tag.category = (Tag::Category) keyword;
+		tag.category = Tag::KEYWORD;
+		tag.keyword = keyword;
 		return tag;
 	}
 	
@@ -244,47 +243,71 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 	Scanner scanner;
 	Token next = scanner.get();
 	
+	bool unresolved = false;
+	
 	lookup:
+	tag.path.push_back (token.str.ptr);
+	if (unresolved) goto check_for_next;
+	
 	symbol = lookup (token.str, scope);
 	
-	if (symbol == 0)
+	if (symbol is 0) {
 		tag.category = tag.NEW_NAME;
-		
+		unresolved = true;
+		std::stringstream msg;
+		msg <<	"'"<<tag.token.str.ptr<<"' not found in '"<<scope->name<<"'\n";
+		Log ((char*) msg.str().c_str(), tag.token, Error::Level::ERROR, scope);
+		goto check_for_next; }
 	
-	next = scanner.get();
+	tag.reference = symbol;
 	
-	if (next.id == '.') {
-		token = scanner.get();
-		
-		goto lookup; }
-	else
-		scanner.unget (next);
-	
-	// TODO: determine between type and object
 	if (IsObject (symbol))
 		tag.category = tag.OBJECT,
 		tag.object = (Tag::Object) symbol->type;
 	
 	else
 	if (IsType (symbol))
-		tag.category = tag.TYPE,
-		tag.type = (Tag::Type) symbol->type;
+	{
+		tag.category = tag.TYPE;
+		Type type;
+		type.datatype = Type::STRUCTURED;
+		type.complex = (Tuple*) symbol;
+		tag.type = type;
+	}
+	else
+	{
+		fprintf (stderr, "Invalid named symbol\n");
+	}
+	
+	check_for_next:
+	next = scanner.get();
+	
+	if (next.id is '.')
+	{
+		tag.nested = true;
+		token = scanner.get();
+		if (tag.category is Tag::OBJECT
+		and tag.object < Tag::FUNCTION)
+		{
+			auto type = ((Object*) symbol)->datatype;
+			if (type.datatype isnt Type::STRUCTURED);
+				//Log (""
+		}
+		scope = (Scope*) symbol;
+		goto lookup; }
+	else
+		scanner.unget (next);
 	
 	tag.reference = symbol;
 	return tag;
 }
 
-// parse a statement based on its first symbol
-typedef Symbol* (ParseStatementFunc) (Tag, Scope*);
-ParseStatementFunc
-ParseLabelStatement,
-ParseParenthesesStatement,
-ParseExpressionStatement,
-ParseScopeStatement;
-
-Symbol* ParseVariableOrFunctionStatement
-(Tag type, Tag name, Scope*);
+Symbol* ParseVariableOrFunctionStatement (Tag type, Tag name, Scope*);
 Symbol* ParseKeywordStatement (Tag, Scope*);
+
+Symbol* ParseScopeStatement (Tag, Scope*);
+Symbol* ParseExpressionStatement (Tag, Scope*);
+Symbol* ParseTupleStatement (Tag, Scope*);
 
 // parses one statement into the symbol table
 Symbol* ParseStatement (Scope* scope)
@@ -294,7 +317,7 @@ Symbol* ParseStatement (Scope* scope)
 	if (scope->closed and scope->parent != 0)
 	scope = scope->parent;
 
-	Tag tag;
+	Tag tag, next;
 
 	next_tag:
 	tag = ParseTag (scope);
@@ -302,13 +325,19 @@ Symbol* ParseStatement (Scope* scope)
 	switch (tag.category)
 	{
 		case tag.END_INPUT:
+		scope->closed = true;
 		return (Symbol*) -1; // stop parsing, end of file
 		
-		case Tag::NEW_NAME:
-		fast idx = scope->Expressions.size();
-		scope->Gotos.insert (std::pair<string, fast>
-			(tag.token.str, idx));
-		return (Symbol*) 0;
+		case Tag::NEW_NAME: {
+		
+		scope->Gotos.insert
+		(
+			std::pair<string, fast> (
+			tag.token.str.ptr,
+			scope->Expressions.size() )
+		);
+		
+		return (Symbol*) 0; }
 		
 		case Tag::PLACEHOLDER:
 		case Tag::OBJECT:
@@ -317,12 +346,12 @@ Symbol* ParseStatement (Scope* scope)
 		return ParseExpressionStatement (tag, scope);
 		
 		case Tag::TYPE:
-		Tag next = ParseTag (scope);
+		next = ParseTag (scope);
 		if (next.category == Tag::NEW_NAME)
 			return ParseVariableOrFunctionStatement (tag, next, scope);
 		
 		case Tag::ACCESS:
-		Log ("Use . after a name to access a field (ignoring)", tag.token.loc, Error::Level::NOTE, scope);
+		Log ("Use . after a name to access a field (ignoring)", tag.token, Error::Level::NOTE, scope);
 		goto next_tag;
 		
 		case Tag::SEPARATOR:
@@ -335,221 +364,194 @@ Symbol* ParseStatement (Scope* scope)
 			return ParseExpressionStatement (tag, scope);
 			
 			case TokenID::PAREN_L:
-			return ParseScopeStatement (tag, scope);
+			return ParseTupleStatement (tag, scope);
 			
 			case TokenID::BRACE_R:
-			Log ("'}' should be paired with an '{', otherwise use '...'", tag.token.loc, Error::Level::WARNING, scope);
-			goto next_tag;
+			
+			if (not scope->braced)
+				Log ("'}' should be paired with an '{', otherwise use '...'", tag.token, Error::Level::WARNING, scope);
+			scope->closed = true;
+			
 			
 			case TokenID::BRACKET_R:
-			Log ("']' has no matching '['", tag.token.loc, Error::Level::WARNING, scope);
+			Log ("']' has no matching '['", tag.token, Error::Level::WARNING, scope);
 			goto next_tag;
 		
 			case TokenID::PAREN_R:
-			Log ("')' has no matching '('", tag.token.loc, Error::Level::WARNING, scope);
+			Log ("')' has no matching '('", tag.token, Error::Level::WARNING, scope);
 			goto next_tag;
 			
-			default:
-			return ParseKeywordStatement (tag, scope);
+			default: break;
 		}
+		
+		case Tag::KEYWORD:
+		return ParseKeywordStatement (tag, scope);
 	}
 
-	return (Symbol*) -2;
-
 	// *snippet for later, probably in ParseExpressionStatement* //
-	// no statement begins with these
-	Log ("'..' denotes a range - place between two values:	1..9", tag.token.loc, Error::Level::WARNING, scope);
+	Log ("'..' denotes a range - place between two values:	1..9", tag.token, Error::Level::WARNING, scope);
 }
 
 Symbol* ParseVariableOrFunctionStatement (Tag tag, Scope* scope)
 {
-	
+	// TODO
 }
 
+Symbol* ParseIncludeStatement (Scope*);
+Symbol* ParseReturnStatement (Scope*);
+
+Symbol* ParseStructStatement (Tag, Scope*);
+Symbol* ParseSelectionStatement (Tag, Scope*);
+Symbol* ParseCaseStatement (Tag, Scope*);
+Symbol* ParseJumpStatement (Tag, Scope*);
+
 // statements beginning with a keyword (not representing a type)
-Symbol* ParseKeywordStatement (Tag tag, Symbol* scope)
+Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 {
-	// TODO: could be a STRUCT, UNION, ENUM, MODULE, declaration specifier,
+	// could be a STRUCT, UNION, ENUM, MODULE, declaration specifier,
 	// or control structure (if / switch / etc)
-	switch (tag.category)
+	switch (tag.keyword)
 	{
 		typedef Keyword ID;
 		
-		case ID::INCLUDE:
+		case Keyword::INCLUDE:
 			
-			return ParseIncludeStatement (scope);
+		return ParseIncludeStatement (scope);
 		
-		case ID::STRUCT:
-		case ID::UNION:
-		case ID::ENUM:
-		case ID::MODULE:
+		case Keyword::STRUCT:
+		case Keyword::UNION:
+		case Keyword::ENUM:
+		case Keyword::MODULE:
+		
+		return ParseStructStatement (tag, scope);
+		
+		case Keyword::LOCAL:
+		case Keyword::STATIC:
+		case Keyword::CONST:
+		case Keyword::INLINE:
+		case Keyword::SIGNED:
+		case Keyword::UNSIGNED:
+		case Keyword::COMPLEX:
+		case Keyword::IMAGINARY:
+		
+		return ParseVariableOrFunctionStatement (tag, ParseTag (scope), scope);
+		
+		case Keyword::IF:
+		case Keyword::ELSE:
+		case Keyword::DO_WHILE:
+		case Keyword::WHILE:
+		case Keyword::FOR:
+		case Keyword::SWITCH:
+		
+		return ParseSelectionStatement (tag, scope);
+		
+		case Keyword::RETURN:
+		
+		// TODO: implement return keyword in context of the syntax table
+		return ParseReturnStatement (scope);
+		
+		case Keyword::SIZEOF:
+		case Keyword::TYPEOF:
+		case Keyword::COUNTOF:
+		case Keyword::NAMEOF:
+		
+		return ParseExpressionStatement (tag, scope);
+		
+		case Keyword::GOTO:
+		return ParseJumpStatement (tag, scope);
+		
+		case Keyword::BREAK:
 			
-			return ParseStructStatement (id, scope);
-		
-		case ID::LOCAL:
-		case ID::STATIC:
-		case ID::CONST:
-		case ID::INLINE:
-		case ID::SIGNED:
-		case ID::UNSIGNED:
-		case ID::COMPLEX:
-		case ID::IMAGINARY:
+		if (Symbol::Kind::IF >= scope->type or
+				Symbol::Kind::SWITCH <= scope->type)
+			Log ("Break used outside of loop", tag.token, Error::Level::WARNING, scope);
 			
-			return ParseVariableOrFunctionStatement (token,scope);
+		return ParseJumpStatement (tag, scope);
 		
-		case ID::IF:
-		case ID::ELSE:
-		case ID::DO:
-		case ID::WHILE:
-		case ID::FOR:
-		case ID::SWITCH:
+		case Keyword::CONTINUE:
 			
-			return ParseControlStatement (token,scope);
-		
-		case ID::RETURN:
-			
-			// TODO: implement return keyword in context of the syntax table
-			return ParseReturnStatement (scope);
-		
-		case ID::SIZEOF:
-		case ID::TYPEOF:
-		case ID::COUNTOF:
-		case ID::NAMEOF:
-		case ID::FIELDSOF:
-		
-			return ParseExpressionStatement (token,scope);
-		
-		case ID::BREAK:
-			
-			if (Symbol::Type::IF > scope->type or
-					Symbol::Type::SWITCH < scope->type)
-				Log ("Break used outside of loop", token.loc, Error::Level::WARNING, scope);
-			
-			return ParseFlowStatement (token, scope);
-		
-		case ID::CONTINUE:
-			
-			if (Symbol::Type::IF > scope->type or
-					Symbol::Type::SWITCH < scope->type)
-				Log ("Continue used outside of loop", token.loc, Error::Level::WARNING, scope);
-				return (Symbol*) 0;
+		if (Symbol::Kind::IF >= scope->type or
+				Symbol::Kind::SWITCH <= scope->type) {
+			Log ("Continue used outside of loop", tag.token, Error::Level::WARNING, scope);
+			return (Symbol*) 0; }
 				
-			return ParseFlowStatement (token, scope);
+		return ParseJumpStatement (tag, scope);
 		
-		case ID::CASE:
+		case Keyword::DEFAULT:
 			
-			if (Symbol::Type::SWITCH != scope->type)
-				Log ("Ignoring case used outside of switch", token.loc, Error::Level::WARNING, scope);
-				return (Symbol*) 0;
+		if (scope->type isnt Symbol::Kind::SWITCH) {
+			Log ("Ignoring default used outside of switch", tag.token, Error::Level::WARNING, scope);
+			return (Symbol*) 0; }
 			
-			return ParseCaseStatement (token, scope);
+		return ParseCaseStatement (tag, scope);
+		
+		case Keyword::CASE:
 			
-		case ID::DEFAULT:
+		if (Symbol::Kind::SWITCH != scope->type) {
+			Log ("Ignoring case used outside of switch", tag.token, Error::Level::WARNING, scope);
+			return (Symbol*) 0; }
 			
-			if (Symbol::Type::SWITCH != scope->type)
-				Log ("Ignoring default used outside of switch", token.loc, Error::Level::WARNING, scope);
-				return (Symbol*) 0;
-			
-			return ParseCaseStatement (token, scope);
+		return ParseCaseStatement (tag, scope);
 	}
 }
 
 // -------------------------------- //
 // -------------------------------- //
 
-Symbol* ParseLabelStatement (Token token, Symbol* scope)
-{
-	// statement starting with a name or keyword
-	// could be a VARIABLE, FUNCTION, TYPE NAME, or KEYWORD
-	int IsNotKeyword;
-	Keyword keyword = (Keyword) keywords.find (token.str, &IsNotKeyword);
-	
-	if (IsNotKeyword) return ParseKeywordStatement (token, scope, keyword);
-	
-	Symbol* ref = lookup (token.str, scope);
-	
-	switch (ref->type)
-	{
-		typedef Symbol::Type ST;
-		
-		case ST::PLACEHOLDER:
-		case ST::VARIABLE:
-		case ST::EXPRESSION:
-			return ParseExpressionStatement (token, scope);
-		
-		default:
-			return ParseVariableOrFunctionStatement (token, scope);
-	}
-}
-
-Symbol* ParseParenthesesStatement (Token token, Reference scope)
+Symbol* ParseTupleStatement (Tag tag, Scope* scope)
 {
 	// TODO: could be a TUPLE or EXPRESSION
 	// aka: VARIABLE definition, FUNCTION definition, or EXPRESSION
 	
 }
 
-Symbol* ParseScopeStatement (Token token, Symbol* scope)
+Symbol* ParseScopeStatement (Tag tag, Scope* scope)
 {
 	// TODO: parse a stack frame / anonymous namespace
 	
 }
 
-Symbol* ParseExpressionStatement (Token token, Reference scope)
+Symbol* ParseExpressionStatement (Tag tag, Scope* scope)
 {
-	
+	// TODO
 }
 
+// --------------------------------
 
-ParseStatementFunc ParseVariableOrFunctionStatement;
-
-Symbol* ParseStructStatement (Keyword kind, Symbol* scope);
-Symbol* ParseIncludeStatement (Symbol* scope);
-Symbol* ParseReturnStatement (Symbol* scope);
-Symbol* ParseFlowStatement (Token, Symbol* scope);
-Symbol* ParseControlStatement (Token, Symbol* scope);
-Symbol* ParseCaseStatement (Token, Symbol* scope);
-
-
-
-ParseStatementFunc
-ParseVariableStatement,
-ParseFunctionStatement;
-
-Symbol* ParseIncludeStatement (Symbol* scope)
+Symbol* ParseIncludeStatement (Scope* scope)
 {
 	Scanner scanner = {};
 	
 	Token token = scanner.get();
 	
 	if (not TokenIs (TokenID::NAME, token))
-		Log ("Expected symbol name after include", token.loc, Error::Level::WARNING, scope);
+		// TODO: add details to this err //
+		Log ("Expected symbol name after include", token, Error::Level::WARNING, scope);
 	
 	return (Symbol*) 0;
 }
 
-Symbol* ParseFlowStatement (Symbol* scope)
+Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 {
-	
+	// TODO
 }
 
-Symbol* ParseReturnStatement (Symbol* scope)
+Symbol* ParseReturnStatement (Scope* scope)
 {
 	Scanner scanner = {};
 	Token token = scanner.get ();
 	
-	Return returnobj;
-	returnobj.type = Symbol::Type::RETURN; 
-	
-	Expression* expr = (Expression*) ParseExpression (token, scope);
+	Expression* expr
+//	 = (Expression*) ParseExpression (token, scope)
+	;
 	
 	if (expr == 0)
 	{
-		Log ("Expected expression after return", token.loc, Error::Level::WARNING, scope);
+		Log ("Expected expression after return", token, Error::Level::WARNING, scope);
 		return (Symbol*) 0;
 	}
 	
-	returnobj.value = expr;
+	scope->Return.Initializer = expr;
 }
 
 }
