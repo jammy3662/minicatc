@@ -196,6 +196,7 @@ struct Expression: Object
 	int2 right;
 	
 	byte opcode;
+	bool constant_value;
 };
 
 //  access sizeof, typeof, countof, nameof, or fieldsof an object
@@ -224,13 +225,11 @@ struct Scope: Tuple
 	Array <Scope> Definitions;
 	
 	Array <Symbol*> Members;
-	Table <string, Symbol*>	Aliases;
+	Table <string, Symbol*>	Tags;
 	Table <string, fast> Gotos;
 	
 	Kind Receiver; // for methods like int.sign()
 	Tuple Parameters; // fields passed in for functions
-	
-	Variable Return;
 	
 	bool braced: 1; // true when scope starts with {
 	bool closed: 1; // true when } or ...

@@ -67,32 +67,6 @@ bool IsObject (Symbol* symbol)
 
 std::vector <char*> LastComment;
 
-enum Keyword
-{
-	// meta
-	INCLUDE,
-	INLINE,
-	SIZEOF, COUNTOF,
-	NAMEOF, TYPEOF,
-	// storage //
-	LOCAL,
-	STATIC,
-	CONST,
-	// alu //
-	SIGNED, UNSIGNED,
-	COMPLEX, IMAGINARY,
-	// flow //
-	BREAK, CONTINUE, RETURN, GOTO,
-	// declaration //
-	STRUCT, UNION,
-	MODULE, ENUM,
-	// loop //
-	WHILE, DO_WHILE, FOR,
-	// selection //
-	IF, ELSE, SWITCH,
-	CASE, DEFAULT,
-};
-
 Trie <char, fast> keywords;
 
 struct Tag
@@ -166,8 +140,9 @@ Tag ParseTag (Scope* scope)
 	case I::HASH: {
 	// unused tokens //
 	std::stringstream msg;
-	msg << "Ignoring unused character '"<<token.str.ptr<<"'\n";
-	Log ((char*) msg.str().c_str(), token, Error::Level::NOTE, scope);
+	msg << "Ignoring unused character '"<<token.str.ptr<<"'";
+	auto str = (char*) msg.str().c_str();
+	Log (str, token, Error::Level::NOTE, scope);
 	goto get_token; }
 	
 	case I::END_FILE:
@@ -255,8 +230,9 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		tag.category = tag.NEW_NAME;
 		unresolved = true;
 		std::stringstream msg;
-		msg <<	"'"<<tag.token.str.ptr<<"' not found in '"<<scope->name<<"'\n";
-		Log ((char*) msg.str().c_str(), tag.token, Error::Level::ERROR, scope);
+		msg <<	"'"<<tag.token.str.ptr<<"' not found in '"<<scope->name<<"'";
+		auto str = (char*) msg.str().c_str();
+		Log (str, tag.token, Error::Level::ERROR, scope);
 		goto check_for_next; }
 	
 	tag.reference = symbol;
@@ -302,7 +278,7 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 	return tag;
 }
 
-Symbol* ParseVariableOrFunctionStatement (Tag type, Tag name, Scope*);
+Symbol* ParseInstanceStatement (Tag type, Tag name, Scope*);
 Symbol* ParseKeywordStatement (Tag, Scope*);
 
 Symbol* ParseScopeStatement (Tag, Scope*);
@@ -330,11 +306,13 @@ Symbol* ParseStatement (Scope* scope)
 		
 		case Tag::NEW_NAME: {
 		
+		// TODO: ensure next token is ':'
+		if (not tag.nested)
 		scope->Gotos.insert
 		(
 			std::pair<string, fast> (
 			tag.token.str.ptr,
-			scope->Expressions.size() )
+			scope->Members.size() )
 		);
 		
 		return (Symbol*) 0; }
@@ -348,7 +326,7 @@ Symbol* ParseStatement (Scope* scope)
 		case Tag::TYPE:
 		next = ParseTag (scope);
 		if (next.category == Tag::NEW_NAME)
-			return ParseVariableOrFunctionStatement (tag, next, scope);
+			return ParseInstanceStatement (tag, next, scope);
 		
 		case Tag::ACCESS:
 		Log ("Use . after a name to access a field (ignoring)", tag.token, Error::Level::NOTE, scope);
@@ -392,11 +370,32 @@ Symbol* ParseStatement (Scope* scope)
 	Log ("'..' denotes a range - place between two values:	1..9", tag.token, Error::Level::WARNING, scope);
 }
 
-Symbol* ParseVariableOrFunctionStatement (Tag tag, Scope* scope)
+// -------------------------------- //
+
+Symbol* ParseTupleStatement (Tag tag, Scope* scope)
+{
+	// TODO: could be a TUPLE or EXPRESSION
+	// aka: VARIABLE definition, FUNCTION definition, or EXPRESSION
+	
+}
+
+Symbol* ParseScopeStatement (Tag tag, Scope* scope)
+{
+	// TODO: parse a stack frame / anonymous namespace
+	
+}
+
+Symbol* ParseExpressionStatement (Tag tag, Scope* scope)
 {
 	// TODO
 }
 
+Symbol* ParseInstanceStatement (Tag tag, Scope* scope)
+{
+	// TODO
+}
+
+// keyword statements //
 Symbol* ParseIncludeStatement (Scope*);
 Symbol* ParseReturnStatement (Scope*);
 
@@ -434,11 +433,11 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 		case Keyword::COMPLEX:
 		case Keyword::IMAGINARY:
 		
-		return ParseVariableOrFunctionStatement (tag, ParseTag (scope), scope);
+		return ParseInstanceStatement (tag, ParseTag (scope), scope);
 		
 		case Keyword::IF:
 		case Keyword::ELSE:
-		case Keyword::DO_WHILE:
+		case Keyword::DO:
 		case Keyword::WHILE:
 		case Keyword::FOR:
 		case Keyword::SWITCH:
@@ -447,7 +446,6 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 		
 		case Keyword::RETURN:
 		
-		// TODO: implement return keyword in context of the syntax table
 		return ParseReturnStatement (scope);
 		
 		case Keyword::SIZEOF:
@@ -458,65 +456,52 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 		return ParseExpressionStatement (tag, scope);
 		
 		case Keyword::GOTO:
-		return ParseJumpStatement (tag, scope);
-		
 		case Keyword::BREAK:
-			
-		if (Symbol::Kind::IF >= scope->type or
-				Symbol::Kind::SWITCH <= scope->type)
-			Log ("Break used outside of loop", tag.token, Error::Level::WARNING, scope);
-			
-		return ParseJumpStatement (tag, scope);
-		
 		case Keyword::CONTINUE:
-			
-		if (Symbol::Kind::IF >= scope->type or
-				Symbol::Kind::SWITCH <= scope->type) {
-			Log ("Continue used outside of loop", tag.token, Error::Level::WARNING, scope);
-			return (Symbol*) 0; }
 				
 		return ParseJumpStatement (tag, scope);
 		
 		case Keyword::DEFAULT:
-			
-		if (scope->type isnt Symbol::Kind::SWITCH) {
-			Log ("Ignoring default used outside of switch", tag.token, Error::Level::WARNING, scope);
-			return (Symbol*) 0; }
-			
-		return ParseCaseStatement (tag, scope);
-		
 		case Keyword::CASE:
-			
-		if (Symbol::Kind::SWITCH != scope->type) {
-			Log ("Ignoring case used outside of switch", tag.token, Error::Level::WARNING, scope);
-			return (Symbol*) 0; }
-			
+		
 		return ParseCaseStatement (tag, scope);
 	}
 }
 
 // -------------------------------- //
-// -------------------------------- //
 
-Symbol* ParseTupleStatement (Tag tag, Scope* scope)
+Symbol* ParseCaseStatement (Tag t, Scope* s)
 {
-	// TODO: could be a TUPLE or EXPRESSION
-	// aka: VARIABLE definition, FUNCTION definition, or EXPRESSION
+	if (s->type isnt Symbol::Kind::SWITCH) {
+		
+		std::stringstream msg;
+		msg <<	"Ignoring "<<t.token.str<<" used outside of switch";
+		auto str = (char*) msg.str().c_str();
+		Log (str, t.token, Error::Level::WARNING, s); }
 	
+	// TODO: look for an expression for case or ; for default
 }
 
-Symbol* ParseScopeStatement (Tag tag, Scope* scope)
+Symbol* ParseJumpStatement (Tag t, Scope* s)
 {
-	// TODO: parse a stack frame / anonymous namespace
+	// TODO: check not just the current scope, but also
+	// outer scopes to see if inside a loop
+	// this means iterating on s until the outermost scope
+	if (t.keyword is Keyword::GOTO)
+	{
+		// TODO: look for a name tag for a goto marker
+	}
 	
+	else
+	if (not between (s->type, Symbol::IF, Symbol::FOR) and
+	    not (t.keyword is Keyword::BREAK and s->type is Symbol::SWITCH))
+	{
+		std::stringstream msg;
+		msg << t.token.str <<" used outside of loop";
+		auto str = (char*) msg.str().c_str();
+		Log (str, t.token, Error::Level::WARNING, s);
+	}
 }
-
-Symbol* ParseExpressionStatement (Tag tag, Scope* scope)
-{
-	// TODO
-}
-
-// --------------------------------
 
 Symbol* ParseIncludeStatement (Scope* scope)
 {
@@ -531,10 +516,6 @@ Symbol* ParseIncludeStatement (Scope* scope)
 	return (Symbol*) 0;
 }
 
-Symbol* ParseJumpStatement (Tag tag, Scope* scope)
-{
-	// TODO
-}
 
 Symbol* ParseReturnStatement (Scope* scope)
 {
@@ -551,7 +532,7 @@ Symbol* ParseReturnStatement (Scope* scope)
 		return (Symbol*) 0;
 	}
 	
-	scope->Return.Initializer = expr;
+	//scope->Return.Initializer = expr;
 }
 
 }

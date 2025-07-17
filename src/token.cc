@@ -15,6 +15,8 @@ typedef TokenID ID;
 
 long line, column;
 
+array <Token> Scanner::buffer;
+
 char fgetc_lc (FILE* f)
 {
 	char c = fgetc (f);

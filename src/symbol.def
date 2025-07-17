@@ -17,5 +17,11 @@ using Table = std::multimap <Key, Val>;
 
 using string = std::string;
 
+template <typename T>
+inline
+bool between (T _, T lo, T hi)
+{
+	return (_ >= lo and _ <= hi);
+} 
 
 #endif
