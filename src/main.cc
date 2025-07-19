@@ -22,9 +22,9 @@ void dummyParse (FILE* in)
 	for (int i = 0; (1); ++i)
 	{
 			Token w = scanner.get ();
-			int id = w.id;
+			int id = w.kind;
 			
-			if (w.id == TokenID::NAME)
+			if (w.kind == TokenID::NAME)
 			{
 				int err;
 				id = ids.find (w.str, 0, &err);
@@ -34,7 +34,7 @@ void dummyParse (FILE* in)
 					ids.insert (w.str, (char)0, idIdx++);
 			}
 			
-			if (w.id == TokenID(-1)) break;
+			if (w.kind == TokenID(-1)) break;
 			printf ("%u\t\t%s\n", (unsigned short)(id), (char*)w.str);
 	}
 }

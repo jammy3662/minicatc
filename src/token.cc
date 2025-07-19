@@ -15,7 +15,7 @@ typedef TokenID ID;
 
 long line, column;
 
-array <Token> Scanner::buffer;
+array <Token> Scanner::source;
 
 char fgetc_lc (FILE* f)
 {
@@ -37,7 +37,7 @@ void SetSource (FILE* fp)
 Token getnumber (char first)
 {
 	Token w;
-	w.id = ID::INT_CONST;
+	w.kind = ID::INT_CONST;
 	
 	array<char> str = {};
 	str.append (first);
@@ -69,7 +69,7 @@ readone:
 	}
 	if (c == '.' && not hasDecimal && not hasPrefix)
 	{
-		w.id = ID::FLOAT_CONST;
+		w.kind = ID::FLOAT_CONST;
 		hasDecimal = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -77,7 +77,7 @@ readone:
 	}
 	if (c == 'e' || c == 'E' &&	not hasExponent && not hasPrefix)
 	{
-		w.id = ID::FLOAT_CONST;
+		w.kind = ID::FLOAT_CONST;
 		hasExponent = 1;
 		str.append (c);
 		c = fgetc (source);
@@ -109,8 +109,8 @@ Token getstring (char delim)
 	Token w;
 	
 	(delim == '"')
-	?	w.id = ID::STR_CONST
-	: w.id = ID::CHAR_CONST;
+	?	w.kind = ID::STR_CONST
+	: w.kind = ID::CHAR_CONST;
 	
 	array<char> str = {};
 	
@@ -127,7 +127,7 @@ nextc:
 	else escaped = 0;
 	
 	c = fgetc (source);
-	if (c == -1) { w.id = ID(-1); return w; }
+	if (c == -1) { w.kind = ID(-1); return w; }
 		
 	if (c != delim || escaped) goto addc;
 	
@@ -149,7 +149,7 @@ Token getalpha (char first)
 	// essentially ignores the symbol outside of its declaration
 	if (c == '_')
 	{
-		w.id = ID::UNDERSCORE;
+		w.kind = ID::UNDERSCORE;
 		str.append (c);
 		c = fgetc (source);
 		goto update;
@@ -157,7 +157,7 @@ Token getalpha (char first)
 	
 nextletter:
 
-	w.id = ID::NAME;
+	w.kind = ID::NAME;
 	
 update:
 
@@ -181,7 +181,7 @@ update:
 Token getlinecom ()
 {
 	Token w;
-	w.id = ID::COM_LINE;
+	w.kind = ID::COM_LINE;
 	
 	array<char> str = {};
 	
@@ -189,7 +189,7 @@ Token getlinecom ()
 	while (isblank(c) || iscntrl(c))
 	{
 		c = fgetc (source);
-		if (c == -1) { str.append(0); w.id = ID(-1); return w; }
+		if (c == -1) { str.append(0); w.kind = ID(-1); return w; }
 	}
 	str.append (c);
 	
@@ -197,7 +197,7 @@ Token getlinecom ()
 	
 	while (not (c != '\\' && n == '\n'))
 	{
-		if (n == -1) { str.append(0); w.id = ID(-1); return w; }
+		if (n == -1) { str.append(0); w.kind = ID(-1); return w; }
 		str.append (n);
 		c = n;
 		n = fgetc (source);
@@ -217,7 +217,7 @@ Token getlinecom ()
 Token getblockcom ()
 {
 	Token w;
-	w.id = ID::COM_BLOCK;
+	w.kind = ID::COM_BLOCK;
 	
 	array<char> str = {};
 	
@@ -225,7 +225,7 @@ Token getblockcom ()
 	while (isblank(c) || iscntrl(c))
 	{
 		c = fgetc (source);
-		if (c == -1) { str.append(0); w.id = ID(-1); return w; }
+		if (c == -1) { str.append(0); w.kind = ID(-1); return w; }
 	}
 	str.append (c);
 	
@@ -233,7 +233,7 @@ Token getblockcom ()
 	
 	while (not (c == '*' && n == '/'))
 	{
-		if (n == -1) { str.append(0); w.id = ID(-1); return w; }
+		if (n == -1) { str.append(0); w.kind = ID(-1); return w; }
 		str.append (n);
 		c = n;
 		n = fgetc (source);
@@ -254,7 +254,7 @@ Token getblockcom ()
 int get2 (char op, Token* _token_)
 {
 	Token w;
-	w.id = ID(op);
+	w.kind = ID(op);
 	
 	array<char> str = {};
 	str.append (op);
@@ -264,7 +264,7 @@ int get2 (char op, Token* _token_)
 	
 	if (op == next)
 		str.append (op),
-		w.id = ID (w.id + ID::x2);
+		w.kind = ID (w.kind + ID::x2);
 	else
 	{
 		ungetc (next, source);
@@ -282,7 +282,7 @@ finish:
 int get3 (char op, Token* _token_)
 {
 	Token w;
-	w.id = ID(op);
+	w.kind = ID(op);
 	
 	array<char> str = {};
 	str.append (op);
@@ -297,7 +297,7 @@ int get3 (char op, Token* _token_)
 	if (op == next == follow)
 		str.append (op),
 		str.append (op),
-		w.id = ID (w.id + ID::x3);
+		w.kind = ID (w.kind + ID::x3);
 	else
 	{
 		ungetc (follow, source),
@@ -318,7 +318,7 @@ array <Token> buf = {};
 Token gettoken ()
 {
 	Token w;
-	w.id = ID(EOF);
+	w.kind = ID(EOF);
 	
 	// if tokens were put back earlier, use those first
 	if (buf.count > 0)
@@ -338,6 +338,7 @@ Token gettoken ()
 	}
 	
 	char c = fgetc (source);
+	(c == EOF) ? ungetc (c, source) :0; // keep reading EOF indefinitely
 	
 	w.loc.line = line;
 	w.loc.column = column;
@@ -358,7 +359,7 @@ Token gettoken ()
 		return getnumber (c);
 	}
 
-	w.id = ID(c);
+	w.kind = ID(c);
 	str.append (c);
 	
 	if (c == '/')
@@ -394,7 +395,7 @@ void puttokenback (Token w)
 
 TokenType TypeOf (Token t)
 {
-	switch (t.id)
+	switch (t.kind)
 	{
 		case ID::NAME:
 		case ID::UNDERSCORE:
@@ -426,7 +427,7 @@ Token gettokenc ()
 	{
 		token = gettoken ();
 	}
-	while (token.id == ID::COM_LINE || token.id == ID::COM_BLOCK);
+	while (token.kind == ID::COM_LINE || token.kind == ID::COM_BLOCK);
 
 	return token;
 }
@@ -434,68 +435,41 @@ Token gettokenc ()
 Scanner::~Scanner ()
 {
 	if (undoAfter)
-	{
+	
 		// put tokens back in the same order as they started in
-		for (fast i = buffer.count-1; i >= 0; --i)
-		{
-			puttokenback (buffer [i]);
-		}
-	}
+		for (fast i = source.count-1; i >= 0; --i)
+		
+			source.append (buffer [i]);
 	
 	buffer.clear ();
 }
 
-Token Scanner::get (bool discardComments)
+Token Scanner::get (bool discard_comments)
 {
-	fast available = buffer.count-consumed;
+	Token t;
 	
-	if (available < 1)
-	{
-		Token result = gettoken ();
+	if (source.count > 0) {
 		
-		if (discardComments)
-			while (TypeOf (result) == TokenType::COMMENT)
-				result = gettoken ();
-		
-		buffer.append (result);
-		consumed++;
-		
-		return result;
+		--source.count;
+		t = source [source.count];
 	}
+	else
+		t = gettoken();
 	
-	fast top = available-1;
-	Token result = buffer [top];
-	
-	if (discardComments)
-	 while (TypeOf (result) == TokenType::COMMENT)
-		consumed++,
-		top--,
-		result = buffer [top];
-	
-	return result;
+	buffer.append (t);
+	return t;
 }
 
 Token Scanner::top (bool discardComments)
-{
-	Token result = {};
-	
-	fast top = (buffer.count-1) - consumed;
-	if (top < 0) return (Token){};
-	
-	for (fast idx = buffer.count - 1; idx > 0; --idx)
-	{
-		if (TypeOf (buffer [idx]) != TokenType::COMMENT) return buffer [idx];
-	}
-	
-	// if token is from file directly,
-	// take it and copy it back to peek
-	result = gettokenc();
-	buffer.append (result);
-	
-	return result;
+{	
+	return buffer [buffer.count-1];
 }
 
-void Scanner::unget (Token w)
+void Scanner::unget ()
 {
-	buffer.append (w);
+	if (buffer.count < 1) return;
+	
+	buffer.count--;
+	Token t = buffer [buffer.count];
+	source.append (t);
 }

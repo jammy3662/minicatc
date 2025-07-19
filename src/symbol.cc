@@ -14,19 +14,17 @@ Symbol* lookup (char* name, Symbol* start)
 {
 	Scope* scope = (Scope*) start;
 	
-	short NumMatches = scope->Namespace.count (name);
+	short NumMatches = scope->Tags.count (name);
 	
 	until (NumMatches > 0)
 	{
 		scope = (Scope*) scope->parent;
 		if (scope == 0) return (Symbol*) 0;
 		
-		NumMatches = scope->Namespace.count (name);
+		NumMatches = scope->Tags.count (name);
 	}
 	
-	auto index = scope->Namespace.upper_bound (name) -> second;
-	
-	return & ((Scope*)scope)->Fields [index];
+	return scope->Tags.upper_bound (name) -> second;
 }
 
 Error Log (Error err, Symbol* scope)

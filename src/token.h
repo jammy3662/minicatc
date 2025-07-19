@@ -17,7 +17,7 @@ struct Location
 
 struct Token
 {
-	TokenID id; // encompasses raw characters and enum values
+	TokenID kind; // encompasses raw characters and enum values
 	Location loc;
 	array <char> str;
 };
@@ -26,11 +26,12 @@ TokenType TypeOf (Token);
 
 inline
 bool TokenIs (TokenID tt, Token t)
-{ return t.id == tt; }
+{ return t.kind == tt; }
 
 struct Scanner
 {
-	static array <Token> buffer;
+	static array <Token> source;
+	array <Token>	buffer;
 	fast consumed;
 	bool undoAfter;
 	
@@ -38,7 +39,7 @@ struct Scanner
 	
 	Token top (bool discard_comments = true);
 	Token get (bool discard_comments = true);
-	void unget (Token);
+	void unget ();
 };
 
 #endif

@@ -24,7 +24,7 @@ enum Keyword
 	// alu //
 	SIGNED, UNSIGNED,
 	COMPLEX, IMAGINARY,
-	// flow //
+	// jump //
 	BREAK, CONTINUE, RETURN, GOTO,
 	// declaration //
 	STRUCT, UNION,

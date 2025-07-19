@@ -18,8 +18,8 @@ struct Type
 		FLOAT, DOUBLE, DOUBLE_L /* long double */,
 	};
 	
-	Tuple* complex; // struct, union, function, or enum
-	DataType datatype;
+	Tuple* definition; // struct, union, function, or enum
+	DataType data;
 	
 	byte indirection; // pointers (# of)
 	bool const_indirection; // whether pointer can be offset
@@ -32,7 +32,8 @@ struct Type
 struct Scope;
 
 // TODO: sophisticated printf-style errors //
-// (this may unforunately necessitate variadic?) // 
+// (this may unforunately necessitate variadic?) //
+// NOTE:	currently doing this with std::stringstream //
 struct Error
 {
 	Token token;
@@ -83,8 +84,15 @@ struct Symbol
 	
 	std::vector <Error> errors;
 	
-	char* name;
-	Kind type;
+	char* name = "unnamed object";
+	Kind kind;
+};
+
+Symbol* const last_symbol = (Symbol*) -1;
+
+struct Goto: Symbol
+{
+	fast target_index;
 };
 
 struct Expression;
@@ -212,18 +220,12 @@ struct Meta: Symbol
 // contains variables with optional names
 struct Tuple: Symbol
 {
-	Array <Variable>
-	Fields;
-	
-	Table <string, unsigned short>
-	Namespace; // index into locals
+	Table <string, Variable*>
+	fields;
 };
 
 struct Scope: Tuple
 {
-	Array <Expression> Expressions;
-	Array <Scope> Definitions;
-	
 	Array <Symbol*> Members;
 	Table <string, Symbol*>	Tags;
 	Table <string, fast> Gotos;
@@ -231,6 +233,8 @@ struct Scope: Tuple
 	Kind Receiver; // for methods like int.sign()
 	Tuple Parameters; // fields passed in for functions
 	
+	bool symbolic: 1; // false for modules (single instance)
+	bool overlap: 1; // whether fields share memory space (unions)
 	bool braced: 1; // true when scope starts with {
 	bool closed: 1; // true when } or ...
 };

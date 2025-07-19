@@ -9,7 +9,7 @@ namespace CatLang
 		OperatorType ot = {0};
 		
 		// prefix
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUS:
 			case ID::MINUS:
@@ -25,7 +25,7 @@ namespace CatLang
 			default: break;
 		}
 		// postfix
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUSx2:
 			case ID::MINUSx2:
@@ -37,7 +37,7 @@ namespace CatLang
 			default: break;
 		}
 		// infix
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUS:
 			case ID::MINUS:
@@ -68,7 +68,7 @@ namespace CatLang
 	
 	bool IsPrefixOperator (Token t)
 	{
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUS:
 			case ID::MINUS:
@@ -87,7 +87,7 @@ namespace CatLang
 
 	bool IsPostfixOperator (Token t)
 	{
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUSx2:
 			case ID::MINUSx2:
@@ -102,7 +102,7 @@ namespace CatLang
 
 	bool IsInfixOperator (Token t)
 	{
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::PLUS:
 			case ID::MINUS:
@@ -131,7 +131,7 @@ namespace CatLang
 	// a terminal operator is not included in any expression
 	bool IsTerminalOperator (Token t)
 	{
-		switch (t.id)
+		switch (t.kind)
 		{
 			case ID::END_FILE: // end of file
 			case ID::PAREN_R: // END group
@@ -160,7 +160,7 @@ namespace CatLang
 		
 		l.type = Symbol::LITERAL;
 		
-		switch (literal.id)
+		switch (literal.kind)
 		{
 			case (ID::INT_LIT):
 				l.Int = atoll (literal.str);
@@ -209,7 +209,7 @@ namespace CatLang
 			return parsePrefixExpression (scope);
 			
 			expr->position = Expression::PREFIX;
-			expr->opcode = first.id;
+			expr->opcode = first.kind;
 			
 			subexpr = parseExpression (expr);
 			
@@ -246,7 +246,7 @@ namespace CatLang
 		Token next = scanner.get();
 		
 		if (isOperator (next))
-			expr->opcode = next.id;
+			expr->opcode = next.kind;
 		else
 			expr->opcode = Token::STAR;
 		
@@ -265,7 +265,7 @@ namespace CatLang
 				
 				sub->type = Symbol::EXPRESSION;
 				sub->position = Expression::POSTFIX;
-				sub->opcode = next.id;
+				sub->opcode = next.kind;
 				sub->leftSide = outer;
 				
 				outer = sub;
