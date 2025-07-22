@@ -1,14 +1,11 @@
+#include <stack>
+#include <sstream>
+
 #include "parse.h"
 #include "symbol.h"
 #include "expression.h"
 
 #include "cext/trie.h"
-
-#include <stack>
-#include <sstream>
-
-#define is ==
-#define isnt !=
 
 typedef TokenID ID;
 
@@ -55,6 +52,19 @@ std::vector <char*> LastComment;
 
 Trie <char, fast> keywords;
 
+template <typename... T>
+Error Log (Error::Level lvl, Token token, Symbol* scope, T... diagnostics)
+{
+	std::stringstream msg;
+	
+	(msg << ... << diagnostics);
+		
+	auto str = msg.str();
+	auto cstr = (char*) str.c_str();
+	
+	return Log (cstr, token, lvl, scope);
+}
+
 struct Tag
 {
 	Token token;
@@ -68,7 +78,8 @@ struct Tag
 		NEW_NAME,
 		PLACEHOLDER,
 		
-		OBJECT,
+		VARIABLE,
+		EXPRESSION,
 		TYPE,
 		FUNCTION,
 		MARKER,
@@ -83,20 +94,21 @@ struct Tag
 	
 	Type type;
 	
-	enum ObjectKind
+	enum { PAREN_L, PAREN_R, BRACE_L, BRACE_R, BRACKET_L, BRACKET_R, ELLIPSES, SEMI } separator;
+	
+	struct Keytag
 	{
-		VARIABLE = Symbol::VARIABLE,
-		EXPRESSION = Symbol::EXPRESSION,
-		MODULE = Symbol::MODULE
+		Keyword keyword;
+		enum {QUALIFIER, JUMP, DECL, LOOP, SELECTION, INCLUDE, META} category;
 	}
-	object_kind;
+	keytag;
 	
-	Keyword keyword;
+	Symbol* reference;
 	
+	
+	bool nested;
 	Array <Token> tokens;
 	Array <string> path;
-	Symbol* reference;
-	bool nested;
 };
 
 Array <Tag> tags;
@@ -134,10 +146,6 @@ Tag ParseTagLocal (Scope* scope)
 	token = scanner.get();
 	tag.tokens.push_back (token);
 	
-	if (IsOperator (token))
-	tag.category = tag.OPERATOR;
-	return tag;
-	
 	typedef TokenID I;
 	switch (token.kind) {
 	
@@ -149,24 +157,53 @@ Tag ParseTagLocal (Scope* scope)
 	
 	case I::AT:
 	case I::DOLLAR:
-	case I::HASH: {
+	case I::HASH:
 	// unused tokens //
-	std::stringstream msg;
-	msg << "Ignoring unused character '"<<tag.str<<"'";
-	auto stream = msg.str();
-	auto str = (char*) stream.c_str();
-	Log (str, token, Error::Level::NOTE, scope);
-	goto get_token; }
+	Log (Error::NOTE, token, scope, "Ignoring unused character ",tag.str);
+	goto get_token;
 	
 	case I::END_FILE:
+	tag.category = Tag::END_INPUT;
+	return tag;
+	
 	case I::ELLIPSES:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::ELLIPSES;
+	return tag;
+	
 	case I::SEMI:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::SEMI;
+	return tag;
 	
-	case I::BRACE_L: case I::BRACE_R:
-	case I::BRACKET_L: case I::BRACKET_R:
-	case I::PAREN_L: case I::PAREN_R:
+	case I::BRACE_L:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::BRACE_L;
+	return tag;
 	
-	tag.category = tag.SEPARATOR;
+	case I::BRACE_R:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::BRACE_R;
+	return tag;
+	
+	case I::BRACKET_L:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::BRACKET_L;
+	return tag;
+	
+	case I::BRACKET_R:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::BRACKET_R;
+	return tag;
+	
+	case I::PAREN_L:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::PAREN_L;
+	return tag;
+	
+	case I::PAREN_R:
+	tag.category = Tag::SEPARATOR;
+	tag.separator = Tag::PAREN_R;
 	return tag;
 		
 	case I::INT_CONST:
@@ -174,31 +211,36 @@ Tag ParseTagLocal (Scope* scope)
 	case I::CHAR_CONST:
 	case I::STR_CONST:
 	
-	tag.category = tag.OBJECT;
+	tag.category = Tag::EXPRESSION;
 	return tag;
 	
 	case I::STAR:
 	
-	tag.category = tag.STAR;
+	tag.category = Tag::STAR;
 	return tag;
 	
 	case I::UNDERSCORE:
 	
-	tag.category = tag.PLACEHOLDER;
+	tag.category = Tag::PLACEHOLDER;
 	return tag;
 	
 	case I::DOT:
 	
-	tag.category = tag.ACCESS;
+	tag.category = Tag::ACCESS;
 	return tag;
 		
 	case I::NAME:
 	
 	return ParseNameTag (scope, token);
 	
-	default:
-	return tag;
+	default: break;
 	}
+	
+	if (IsOperator (token))
+	tag.category = tag.OPERATOR;
+	return tag;
+	
+	fprintf (stderr, "Failed parsing tag:	%s", token.str.ptr);
 }
 
 Tag ParseSymbolTag (Scope*, Token);
@@ -215,7 +257,59 @@ Tag ParseNameTag (Scope* scope, Token token)
 	if (not IsntKeyword)
 	{
 		tag.category = Tag::KEYWORD;
-		tag.keyword = keyword;
+		tag.keytag.keyword = keyword;
+		switch (keyword)
+		{
+			case LOCAL:
+			case STATIC:
+			case CONST:
+			case INLINE:
+			case SIGNED:
+			case UNSIGNED:
+			case COMPLEX:
+			case IMAGINARY:
+			tag.keytag.category = tag.keytag.QUALIFIER;
+			break;
+			
+			case BREAK:
+			case CONTINUE:
+			case RETURN:
+			case GOTO:
+			tag.keytag.category = tag.keytag.JUMP;
+			break;
+			
+			case STRUCT:
+			case UNION:
+			case ENUM:
+			case MODULE:
+			tag.keytag.category = tag.keytag.DECL;
+			break;
+			
+			case WHILE:
+			case DO:
+			case FOR:
+			tag.keytag.category = tag.keytag.LOOP;
+			break;
+			
+			case IF:
+			case ELSE:
+			case SWITCH:
+			case CASE:
+			case DEFAULT:
+			tag.keytag.category = tag.keytag.SELECTION;
+			break;
+			
+			case INCLUDE:
+			tag.keytag.category = tag.keytag.INCLUDE;
+			break;
+			
+			case SIZEOF:
+			case COUNTOF:
+			case NAMEOF:
+			case TYPEOF:
+			tag.keytag.category = tag.keytag.META;
+			break;
+		}
 		return tag;
 	}
 	
@@ -245,12 +339,8 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		tag.category = tag.NEW_NAME;
 		unresolved = true;
 		
-		std::stringstream msg;
-		msg <<	"'"<<tag.str<<"' not found in '"<<scope->name<<"'";
-		auto stream = msg.str();
-		auto str = (char*) stream.c_str();
-		Log (str, tag.token, Error::Level::ERROR, scope);
-		
+		Log (Error::ERROR, tag.token, scope,
+		     tag.str," not found in ",scope);
 		goto check_for_next;
 	}
 	
@@ -263,9 +353,11 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		break;
 		
 		case Symbol::VARIABLE:
+		tag.category = Tag::VARIABLE;
+		break;
+		
 		case Symbol::EXPRESSION:
-		tag.category = Tag::OBJECT;
-		tag.object_kind = (Tag::ObjectKind) symbol->kind;
+		tag.category = Tag::EXPRESSION;
 		break;
 		
 		case Symbol::TUPLE:
@@ -298,7 +390,8 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 	tag.nested = true;
 	token = scanner.get();
 	
-	if (tag.category is Tag::OBJECT)
+	if (tag.category is Tag::VARIABLE or
+	    tag.category is Tag::EXPRESSION)
 	{
 		auto obj = (Object*) symbol;
 		
@@ -307,7 +400,8 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		
 		else
 		{
-			// TODO: err simple type cannot have members
+			Log (Error::ERROR, token, scope,
+			     "Basic type ",token.str," doesn't have fields");
 			
 			unresolved = true; // (can't look up names in here, even though the symbol exists)
 		}
@@ -345,11 +439,17 @@ Symbol* ParseStatement (Scope* scope)
 		scope->closed = true;
 		return last_symbol; // stop parsing, end of file
 		
+		case Tag::MARKER:
+		Log (Error::NOTE, tag.token, scope, "Try goto ",tag.token.str," to jump execution (the name of the marker does nothing by itself)");
+		return (Symbol*) 0;
+		
 		case Tag::NEW_NAME:
 		return ParseMarker (tag, scope);
 		
 		case Tag::PLACEHOLDER:
-		case Tag::OBJECT:
+		case Tag::VARIABLE:
+		case Tag::EXPRESSION:
+		case Tag::FUNCTION:
 		case Tag::OPERATOR:
 		case Tag::STAR:
 		return ParseExpressionStatement (tag, scope);
@@ -358,7 +458,7 @@ Symbol* ParseStatement (Scope* scope)
 		return ParseTypedStatement (tag, scope);
 		
 		case Tag::ACCESS:
-		Log ("Use . after a name to access a field (ignoring)", tag.token, Error::Level::NOTE, scope);
+		Log (Error::NOTE, tag.token, scope, "Use . after a name to access a field (ignoring)");
 		goto next_tag;
 		
 		case Tag::SEPARATOR:
@@ -376,16 +476,20 @@ Symbol* ParseStatement (Scope* scope)
 			case TokenID::BRACE_R:
 			
 			if (not scope->braced)
-				Log ("'}' should be paired with an '{', otherwise use '...'", tag.token, Error::Level::WARNING, scope);
+				Log (Error::WARNING, tag.token, scope, "'}' should be paired with an '{', otherwise use '...'");
 			scope->closed = true;
 			
 			
 			case TokenID::BRACKET_R:
-			Log ("']' has no matching '['", tag.token, Error::Level::WARNING, scope);
+			
+			Log (Error::WARNING, tag.token, scope,
+			     "] has no matching [");
 			goto next_tag;
-		
+			
 			case TokenID::PAREN_R:
-			Log ("')' has no matching '('", tag.token, Error::Level::WARNING, scope);
+			
+			Log (Error::WARNING, tag.token, scope,
+			     ") has no matching (");
 			goto next_tag;
 			
 			default: break;
@@ -396,7 +500,9 @@ Symbol* ParseStatement (Scope* scope)
 	}
 
 	// *snippet for later, probably in ParseExpressionStatement* //
-	Log ("'..' denotes a range - place between two values:	1..9", tag.token, Error::Level::WARNING, scope);
+	if (0)
+	Log (Error::WARNING, tag.token, scope,
+	     ".. denotes a range - place between two values:	1..9");
 }
 
 // -------------------------------- //
@@ -413,10 +519,7 @@ Symbol* ParseMarker (Tag& tag, Scope* scope)
 			Goto* go_to = new Goto;
 			go_to->kind = Symbol::GOTO;
 			
-			fast target_index = scope->Members.size();
-			go_to->target_index = target_index;
-			
-			scope->Tags.insert (std::make_pair (tag.str, go_to));
+			scope->Insert (go_to);
 			
 			return go_to;
 		}
@@ -441,7 +544,7 @@ Symbol* ParseBlockStatement (Scope* p, bool braced, bool embedded)
 	{
 		// create a new scope symbol and add it to the parent
 		s = new Scope;
-		p->Members.push_back (s);
+		p->Insert (s);
 	}
 	else
 		// if embedded, edit the existing scope symbol directly
@@ -457,7 +560,21 @@ Symbol* ParseBlockStatement (Scope* p, bool braced, bool embedded)
 
 Symbol* ParseTypedStatement (Tag tag, Scope* scope)
 {
-	// TODO
+	get_type_or_qualifier:
+	
+	switch (tag.category)
+	{
+		case Tag::TYPE:
+		
+		case Tag::KEYWORD:
+		
+		default:
+		break;
+	}
+	
+	Type type = tag.type;
+	
+	
 }
 
 Symbol* ParseExpressionStatement (Tag tag, Scope* scope)
@@ -479,7 +596,7 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 {
 	// could be a STRUCT, UNION, ENUM, MODULE, declaration specifier,
 	// or control structure (if / switch / etc)
-	switch (tag.keyword)
+	switch (tag.keytag.keyword)
 	{
 		typedef Keyword ID;
 		
@@ -557,7 +674,7 @@ Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 {
 	Tag next;
 		
-	switch (tag.keyword)
+	switch (tag.keytag.keyword)
 	{
 		case Keyword::BREAK:
 		
@@ -579,7 +696,7 @@ Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 		Symbol::Kind upper_bound = Symbol::FOR;
 		// continue can only be in a loop
 		// break can be in a loop OR switch
-		if (tag.keyword is Keyword::BREAK)
+		if (tag.keytag.keyword is Keyword::BREAK)
 			upper_bound = (Symbol::Kind) (upper_bound	+ 1);
 		
 		if (not between (scope->kind, Symbol::WHILE, upper_bound))
@@ -633,8 +750,8 @@ Symbol* ParseStructStatement (Tag t, Scope* s)
 {
 	Scope* n = new Scope;
 	
-	n->overlap = t.keyword is Keyword::UNION;
-	n->symbolic = t.keyword isnt Keyword::MODULE;
+	n->overlap = t.keytag.keyword is Keyword::UNION;
+	n->symbolic = t.keytag.keyword isnt Keyword::MODULE;
 	
 	Tag next = ParseTag (s);
 	

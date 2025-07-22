@@ -51,7 +51,10 @@ typedef uint64_t uint64;
 #define uint8 uint64_t
 #endif
 
-#define byte char
+typedef char byte;
+
+#define is ==
+#define isnt !=
 
 #ifdef LONG_LONG_MAX
 	#define most long long

@@ -5,15 +5,15 @@ rm -rf .vscode # clear away junk
 CFLAGS="\
 -fcolor-diagnostics \
 -fno-caret-diagnostics \
--Wno-c++11-extensions -Wno-c++11-compat-deprecated-writable-strings \
+-Wno-unused-value -Wno-c++11-extensions -Wno-writable-strings -Wno-c++11-compat-deprecated-writable-strings \
 -Wno-missing-declarations -Wno-empty-body"
 
 CLANG_FILTER="grep -v 'In file included'"
 
-clang++ -std=c++98 -c src/*.cc -I include -I src/cext \
+clang++ -std=c++17 -c src/*.cc -I include -I src/cext \
 	-g3 -fcolor-diagnostics -ferror-limit=100 \
-	$CFLAGS 2>&1 $(RESULT=$?) \
-	| grep -v 'In file included'
+	$CFLAGS 2>&1 $(RESULT=$?) # \
+#	| grep -v 'In file included'
 
 echo $RESULT
 if [[ ! -z $RESULT ]]

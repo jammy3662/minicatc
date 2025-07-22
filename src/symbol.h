@@ -31,13 +31,9 @@ struct Type
 
 struct Scope;
 
-// TODO: sophisticated printf-style errors //
-// (this may unforunately necessitate variadic?) //
-// NOTE:	currently doing this with std::stringstream //
 struct Error
 {
 	Token token;
-	Location& loc = token.loc;
 	char* message;
 	
 	enum Level
@@ -56,6 +52,10 @@ struct Symbol
 		INVALID = 0xFF, ANY = -1, EMPTY = 0,
 		
 		PLACEHOLDER,
+		
+		OBJECT,
+		TYPE,
+		
 		// objects //
 		VARIABLE /* data object */, 
 		EXPRESSION /* operation on object(s) */,
@@ -100,6 +100,9 @@ struct Expression;
 struct Object: Symbol
 {
 	Type datatype;
+	
+	enum { VARIABLE, EXPRESSION }
+	object_kind;
 };
 
 struct Variable: Object
@@ -180,8 +183,7 @@ struct Expression: Object
 	APPEND = 15, // ,
 	};
 	
-	std::vector <Expression> subexpressions;
-	Kind result; // resulting datatype of operation
+	Type result; // resulting datatype of operation
 	
 	union Constant
 	{
@@ -194,16 +196,11 @@ struct Expression: Object
 	union
 	{
 		Object* object;
-		Object* operands [2];
-		
 		Constant literal;
+		Expression* operands [2];
 	};
 	
-	// indices into subexpressions[]
-	int2 left;
-	int2 right;
-	
-	byte opcode;
+	Opcode opcode;
 	bool constant_value;
 };
 
@@ -220,17 +217,18 @@ struct Meta: Symbol
 // contains variables with optional names
 struct Tuple: Symbol
 {
-	Table <string, Variable*>
-	fields;
+	Array <Symbol*> Fields;
+	
+	Table <string, fast> Tags;
+	
+	void Insert (Symbol*, char* name = 0);
 };
 
 struct Scope: Tuple
 {
-	Array <Symbol*> Members;
-	Table <string, Symbol*>	Tags;
 	Table <string, fast> Gotos;
 	
-	Kind Receiver; // for methods like int.sign()
+	Type Receiver; // for methods like int.sign()
 	Tuple Parameters; // fields passed in for functions
 	
 	bool symbolic: 1; // false for modules (single instance)

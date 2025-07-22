@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 
-#include <stdexcept>
 using namespace std; // go to hell c++
 
 namespace CatLang {
@@ -24,7 +23,17 @@ Symbol* lookup (char* name, Symbol* start)
 		NumMatches = scope->Tags.count (name);
 	}
 	
-	return scope->Tags.upper_bound (name) -> second;
+	return scope->Fields
+		[scope->Tags.upper_bound (name) -> second];
+}
+
+void Tuple::Insert (Symbol* symbol, char* name)
+{
+	int idx = Fields.size();
+	Fields.push_back (symbol);
+	
+	if (name isnt 0)
+		Tags.insert (std::make_pair (name, idx));
 }
 
 Error Log (Error err, Symbol* scope)

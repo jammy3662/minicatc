@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "parse.h"
 #include "trie.h"
 #include "token.h"
-#include "parse.h"
 
 using namespace CatLang;
 
