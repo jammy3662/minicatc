@@ -12,21 +12,21 @@ typedef TokenID ID;
 namespace CatLang
 {
 
-Scope ParseSource (char* path)
+Symbol* ParseSource (char* path)
 {
 	FILE* fp = fopen (path, "r");
 	
 	if (not fp)
 	{
 		fprintf (stderr, "Failed to open file at '%s'\n", path);
-		return Scope();
+		return (Symbol*) 0;
 	}
 	
 	return ParseSource (fp);
 }
 
-Scope ParseSource();
-Scope ParseSource (FILE* sourceFile)
+Symbol* ParseSource();
+Symbol* ParseSource (FILE* sourceFile)
 {
 	if (not sourceFile) fprintf (stderr, "Failed to read a null file pointer\n");
 	
@@ -37,13 +37,13 @@ Scope ParseSource (FILE* sourceFile)
 
 Symbol* ParseBlockStatement (Scope*, bool braced = false, bool embedded = false);
 
-Scope ParseSource ()
+Symbol* ParseSource ()
 {
-	Scope compile_unit;
+	Scope* compile_unit = new Scope;
 	
-	ParseBlockStatement (&compile_unit, false, true);
+	ParseBlockStatement (compile_unit, false, true);
 	
-	return compile_unit;
+	return (Symbol*) compile_unit;
 }
 
 // -------------------------------- //
@@ -75,6 +75,7 @@ struct Tag
 	{
 		END_INPUT = -1,
 		
+		UNRESOLVED,
 		NEW_NAME,
 		PLACEHOLDER,
 		
@@ -105,10 +106,9 @@ struct Tag
 	
 	Symbol* reference;
 	
-	
 	bool nested;
 	Array <Token> tokens;
-	Array <string> path;
+	string path;
 };
 
 Array <Tag> tags;
@@ -325,23 +325,25 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 	Scanner scanner;
 	Token next = scanner.get();
 	
-	bool unresolved = false;
+	bool not_found = false;
+	bool not_container = false;
 	
 	lookup:
+	tag.token = token;
 	tag.tokens.push_back (token);
-	tag.path.push_back (tag.str);
-	if (unresolved) goto check_for_next;
+	
+	if (not_container) not_found = true;
+		
+	if (not_found) goto check_for_dot;
 	
 	symbol = lookup (token.str, scope);
 	
 	if (symbol is 0)
 	{
 		tag.category = tag.NEW_NAME;
-		unresolved = true;
+		not_found = true;
 		
-		Log (Error::ERROR, tag.token, scope,
-		     tag.str," not found in ",scope);
-		goto check_for_next;
+		goto check_for_dot;
 	}
 	
 	tag.reference = symbol;
@@ -354,10 +356,14 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		
 		case Symbol::VARIABLE:
 		tag.category = Tag::VARIABLE;
+		not_container = ((Object*)symbol)->datatype.data isnt Type::STRUCTURED;
+		scope = ((Object*)symbol)->datatype.definition;
 		break;
 		
 		case Symbol::EXPRESSION:
 		tag.category = Tag::EXPRESSION;
+		not_container = ((Object*)symbol)->datatype.data isnt Type::STRUCTURED;
+		scope = ((Object*)symbol)->datatype.definition;
 		break;
 		
 		case Symbol::TUPLE:
@@ -367,52 +373,46 @@ Tag ParseSymbolTag (Scope* scope, Token token)
 		case Symbol::MODULE:
 		tag.category = Tag::TYPE,
 		tag.type.data = Type::STRUCTURED,
-		tag.type.definition = (Tuple*) symbol;	
+		tag.type.definition = (Scope*) symbol;	
 		break;
 		
-		case Symbol::GOTO:
+		case Symbol::MARKER:
 		tag.category = Tag::MARKER;
+		not_container = true;
 		break;
 		
 		default:
-		fprintf (stderr, "Invalid named symbol\n");
+		fprintf (stderr, "Invalid named symbol: %s\n", symbol->name);
 	}
 	
-	check_for_next:
+	check_for_dot:
 	next = scanner.get();
 	
 	if (next.kind isnt '.')
 	{
 		scanner.unget ();
+		
+		tag.path.pop_back ();
+		
+		if (not_found and not_container)
+			
+			tag.category = Tag::UNRESOLVED,
+			Log	(Error::ERROR, tag.token, scope,
+		       tag.token.str," can't be in ",tag.path,", which is not a type or structure with fields");
+		
 		return tag;
 	}
 
 	tag.nested = true;
+	tag.path = tag.path + tag.str + '.';
 	token = scanner.get();
-	
-	if (tag.category is Tag::VARIABLE or
-	    tag.category is Tag::EXPRESSION)
-	{
-		auto obj = (Object*) symbol;
-		
-		if (obj->datatype.data is Type::STRUCTURED)
-			symbol = obj->datatype.definition;
-		
-		else
-		{
-			Log (Error::ERROR, token, scope,
-			     "Basic type ",token.str," doesn't have fields");
-			
-			unresolved = true; // (can't look up names in here, even though the symbol exists)
-		}
-	}
 	
 	// look up the next name in the symbol just found
 	scope = (Scope*) symbol;
 	goto lookup;
 }
 
-Symbol* ParseMarker (Tag&, Scope*);
+Symbol* ParseMarker (Tag, Scope*);
 Symbol* ParseTypedStatement (Tag, Scope*);
 Symbol* ParseKeywordStatement (Tag, Scope*);
 
@@ -440,7 +440,7 @@ Symbol* ParseStatement (Scope* scope)
 		return last_symbol; // stop parsing, end of file
 		
 		case Tag::MARKER:
-		Log (Error::NOTE, tag.token, scope, "Try goto ",tag.token.str," to jump execution (the name of the marker does nothing by itself)");
+		Log (Error::NOTE, tag.token, scope, "Try goto ",tag.token.str," to jump to marker ",tag.token.str," (the name of the marker does nothing by itself)");
 		return (Symbol*) 0;
 		
 		case Tag::NEW_NAME:
@@ -462,37 +462,43 @@ Symbol* ParseStatement (Scope* scope)
 		goto next_tag;
 		
 		case Tag::SEPARATOR:
-		switch (tag.token.kind)
+		switch (tag.separator)
 		{
-			case TokenID::BRACE_L:
+			case Tag::SEMI:
+			return (Symbol*) 0;
+			
+			case Tag::BRACE_L:
 			return ParseBlockStatement (scope, true);
 			
-			case TokenID::BRACKET_L:
+			case Tag::BRACKET_L:
 			return ParseExpressionStatement (tag, scope);
 			
-			case TokenID::PAREN_L:
+			case Tag::PAREN_L:
 			return ParseTupleStatement (scope);
 			
-			case TokenID::BRACE_R:
+			case Tag::BRACE_R:
 			
 			if (not scope->braced)
-				Log (Error::WARNING, tag.token, scope, "'}' should be paired with an '{', otherwise use '...'");
+				Log (Error::WARNING, tag.token, scope, "} should be paired with an {, otherwise use ...");
 			scope->closed = true;
+			return (Symbol*) 0;
 			
+			case Tag::ELLIPSES:
+			scope->closed = true;
+			return (Symbol*) 0;
 			
-			case TokenID::BRACKET_R:
+			case Tag::BRACKET_R:
 			
 			Log (Error::WARNING, tag.token, scope,
-			     "] has no matching [");
+		    	 "] has no matching [");
 			goto next_tag;
 			
-			case TokenID::PAREN_R:
+			case Tag::PAREN_R:
 			
 			Log (Error::WARNING, tag.token, scope,
 			     ") has no matching (");
 			goto next_tag;
 			
-			default: break;
 		}
 		
 		case Tag::KEYWORD:
@@ -507,7 +513,7 @@ Symbol* ParseStatement (Scope* scope)
 
 // -------------------------------- //
 
-Symbol* ParseMarker (Tag& tag, Scope* scope)
+Symbol* ParseMarker (Tag tag, Scope* scope)
 {
 	if (not tag.nested)
 	{
@@ -516,10 +522,9 @@ Symbol* ParseMarker (Tag& tag, Scope* scope)
 		
 		if (next.kind is ':')
 		{
-			Goto* go_to = new Goto;
-			go_to->kind = Symbol::GOTO;
-			
-			scope->Insert (go_to);
+			Marker* go_to = new Marker;
+			go_to->target_index =			
+				scope->Insert (go_to);
 			
 			return go_to;
 		}
@@ -529,6 +534,10 @@ Symbol* ParseMarker (Tag& tag, Scope* scope)
 	return (Symbol*) 0;
 }
 
+
+// TODO: ParseTuple implementation
+Symbol* ParseTuple (Scope* scope);
+
 Symbol* ParseTupleStatement (Scope* scope)
 {
 	// TODO: could be a TUPLE or EXPRESSION
@@ -536,50 +545,95 @@ Symbol* ParseTupleStatement (Scope* scope)
 	
 }
 
-Symbol* ParseBlockStatement (Scope* p, bool braced, bool embedded)
+Symbol* ParseBlockStatement (Scope* parent, bool braced, bool embedded)
 {
-	Scope* s;
+	Scope* scope;
 	
 	if (not embedded)
 	{
 		// create a new scope symbol and add it to the parent
-		s = new Scope;
-		p->Insert (s);
+		scope = new Scope;
+		scope->kind = Scope::STACKFRAME;
+		parent->Insert (scope);
 	}
 	else
 		// if embedded, edit the existing scope symbol directly
-		s = p;
+		scope = parent;
 	
-	s->braced = braced;
+	scope->braced = braced;
 	
-	while (not s->closed)
-		ParseStatement (s);
+	while (not scope->closed)
+		ParseStatement (scope);
 	
-	return s;
+	return scope;
 }
+
+// TODO: ParseType implementation
+Type ParseType (Tag, Scope*);
+
+// TODO: ParseVariable and ParseFunction implementations
+Symbol* ParseVariable (char* name, Type datatype, bool initialize, Scope*);
+Symbol* ParseFunction (char* name, Type return_type, Scope*);
 
 Symbol* ParseTypedStatement (Tag tag, Scope* scope)
 {
-	get_type_or_qualifier:
+	Type datatype = ParseType (tag, scope);
+	
+	if (datatype.data is Type::INVALID)
+		return (Symbol*) 0;
+	
+	Scanner scanner;
+	Token next_token;
+	
+	tag = ParseTag (scope);
+	
+	Symbol* parent = scope;
 	
 	switch (tag.category)
 	{
-		case Tag::TYPE:
+		case Tag::PLACEHOLDER:
+		case Tag::NEW_NAME:
 		
-		case Tag::KEYWORD:
+		if (tag.nested)
+			parent = tag.reference;
+		
+		next_token = scanner.get ();
+		switch (next_token.kind)
+		{
+			case TokenID::PAREN_L:
+			return ParseFunction (tag.token.str, datatype, scope);
+			
+			case TokenID::EQUAL:
+			return ParseVariable (tag.token.str, datatype, true, scope);
+			
+			case TokenID::SEMI:
+			return ParseVariable (tag.token.str, datatype, false, scope);
+			
+			default:
+			scanner.unget ();
+			Log	(Error::WARNING, next_token, scope, tag.token.str," is not an initializer expression, parameter list, or end of statement",tag.token.str);
+			return (Symbol*) 0;
+		}
+		
+		case Tag::VARIABLE:
+		case Tag::EXPRESSION:
+		// type cast, if type followed by object
+		return ParseExpressionStatement (tag, scope);
 		
 		default:
-		break;
+		Log (Error::WARNING, tag.token, scope, tag.token.str," cannot have a type of ",datatype.print());
+		return (Symbol*) 0;
 	}
-	
-	Type type = tag.type;
-	
-	
 }
+
+// TODO: ParseExpression implementation
+Expression* ParseExpression (Tag, Scope*);
 
 Symbol* ParseExpressionStatement (Tag tag, Scope* scope)
 {
-	// TODO
+	// TODO:
+	// this fn should only need to call
+	// ParseExpression one time and return
 }
 
 // keyword statements //
@@ -657,19 +711,38 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 
 // -------------------------------- //
 
-Symbol* ParseCaseStatement (Tag t, Scope* s)
+// TODO: ParseCaseStatement implementation
+Symbol* ParseCaseStatement (Tag tag, Scope* scope)
 {
-	if (s->kind isnt Symbol::Kind::SWITCH) {
+	if (scope->kind isnt Symbol::SWITCH) {
 		
-		std::stringstream msg;
-		msg <<	"Ignoring "<<t.token.str<<" used outside of switch";
-		auto stream = msg.str();
-		auto str = (char*) stream.c_str();
-		Log (str, t.token, Error::Level::WARNING, s); }
+		Log (Error::WARNING, tag.token, scope,
+		     "Ignoring ",tag.token.str," used outside of switch");
+	}
 	
-	// TODO: look for an expression for case or ; for default
+	Scanner scanner;
+	Token next;
+	
+	// TODO: look for a case expression followed by ;
+	switch (tag.keytag.keyword)
+	{
+		case Keyword::DEFAULT:
+		
+		if (scanner.get().kind isnt TokenID::SEMI)
+			scanner.unget();
+		
+		case Keyword::CASE:
+		
+		
+		default:
+		fprintf (stderr, "Non-case keyword passed to ParseCaseStatement\n");
+		
+		// TODO: what struct represents a switch
+		// with any number of cases
+	}
 }
 
+// TODO: ParseJumpStatement implementation
 Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 {
 	Tag next;
@@ -710,6 +783,7 @@ Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 	}
 }
 
+// TODO: ParseIncludeStatement implementation
 Symbol* ParseIncludeStatement (Scope* scope)
 {
 	Scanner scanner = {};
@@ -727,43 +801,68 @@ Symbol* ParseIncludeStatement (Scope* scope)
 	return (Symbol*) 0;
 }
 
-
 Symbol* ParseReturnStatement (Scope* scope)
 {
-	Scanner scanner = {};
-	Token token = scanner.get ();
+	Tag tag = ParseTag (scope);
 	
-	Expression* expr
-//	 = (Expression*) ParseExpression (token, scope)
-	;
+	auto expression = (Expression*) ParseExpression (tag, scope);
 	
-	if (expr is 0)
+	if (expression is 0)
 	{
-		Log ("Expected expression after return", token, Error::Level::WARNING, scope);
+		Log (Error::Level::WARNING, tag.token, scope, tag.token.str," is not a return expression");
 		return (Symbol*) 0;
 	}
 	
-	//scope->Return.Initializer = expr;
+	Variable* return_symbol = new Variable;
+	return_symbol->kind = Symbol::RETURN;
+	return_symbol->datatype = expression->datatype;
+	return_symbol->Initializer = expression;
+	scope->Insert (return_symbol);
+	return return_symbol;
 }
 
-Symbol* ParseStructStatement (Tag t, Scope* s)
+// TODO: ParseStructStatement implementation
+Symbol* ParseStructStatement (Tag tag, Scope* scope)
 {
-	Scope* n = new Scope;
+	Scope* newscope = new Scope;
+	newscope->symbolic = true;
 	
-	n->overlap = t.keytag.keyword is Keyword::UNION;
-	n->symbolic = t.keytag.keyword isnt Keyword::MODULE;
+	if (tag.keytag.keyword is Keyword::UNION)
+		newscope->overlap = true,
+		newscope->kind = Symbol::UNION;
+	else
+	if (tag.keytag.keyword is Keyword::MODULE)
+		newscope->symbolic = false,
+		newscope->kind = Symbol::MODULE;
 	
-	Tag next = ParseTag (s);
+	// TODO: parsing enum is significantly different
+	// from parsing a struct, union, or module;
+	// address here by calling a unique enum parsing fn
 	
-	// TODO: look for name tag
-	if (next.category is Tag::NEW_NAME and
-	    not next.nested)
+	Scope* parent = scope;
 	
-	// TODO: look for open brace (optional)
-	if (next.token.kind is '{')
-		n->braced = true;
+	Tag next = ParseTag (scope);
 	
-	ParseBlockStatement (n, true, true);
+	char* name = 0;
+	
+	// look for name tag (optional)
+	if (next.category is Tag::NEW_NAME)
+	{
+		if (next.nested)
+			parent = (Scope*) next.reference;
+		
+		name = next.token.str;
+		next = ParseTag (scope);
+	}
+	
+	// look for open brace (optional)
+	bool braced = next.token.kind is '{';
+	bool embedded = true;
+	
+	ParseBlockStatement (newscope, braced, embedded);
+	
+	parent->Insert (newscope, name);
+	return newscope;
 }
 
 Symbol* ParseInstanceStatement (Tag t, Tag n, Scope* s)

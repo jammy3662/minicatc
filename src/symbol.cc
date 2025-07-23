@@ -27,13 +27,16 @@ Symbol* lookup (char* name, Symbol* start)
 		[scope->Tags.upper_bound (name) -> second];
 }
 
-void Tuple::Insert (Symbol* symbol, char* name)
+int Tuple::Insert (Symbol* symbol, char* name)
 {
 	int idx = Fields.size();
 	Fields.push_back (symbol);
 	
 	if (name isnt 0)
+		symbol->name = name,
 		Tags.insert (std::make_pair (name, idx));
+	
+	return idx;
 }
 
 Error Log (Error err, Symbol* scope)
