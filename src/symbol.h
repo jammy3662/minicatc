@@ -29,21 +29,23 @@ struct Type
 		INVALID	= -1,
 		VOID = 0, STRUCTURED /* struct, union, enum, or function */,
 		//- Arithmetic types -//
-		CHAR, SHORT, INT, LONG, LONG_L /* long long */,
+		BYTE, SHORT, INT, LONG, LONG_L /* long long */,
 		FLOAT, DOUBLE, DOUBLE_L /* long double */,
 	};
 	
 	Scope* definition; // struct, union, function, or enum
 	DataType data;
 	
-	byte indirection; // # of pointers to underlying type
-	bool const_indirection; // whether pointer can be offset
+	byte indirection_ct;
+	long indirection; // sequence of pointers or references to underlying type
+	// (2 bits each, constness [1] and ptr/ref [0])
 
 	byte
-	CONST: 1, REGISTER: 1, RESTRICT: 1, VOLATILE: 1,
-	EXTERN: 1, STATIC: 1, INLINE: 1, SIGNED: 1, RCI: 2 /* real, complex, imaginary */;
+	CONST: 1, STATIC: 1, LOCAL: 1, INLINE: 1, SIGNED: 1, RIC: 2,
+	REGISTER: 1, RESTRICT: 1, VOLATILE: 1, EXTERN: 1; // real, imaginary, complex (both) //;
 	
 	string print ();
+	string print_data ();
 };
 
 struct Scope;

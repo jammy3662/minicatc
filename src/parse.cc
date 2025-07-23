@@ -86,7 +86,8 @@ struct Tag
 		MARKER,
 		
 		OPERATOR,
-		STAR,
+		STAR, // pointer or multiplication
+		TILDE, // reference or complement
 		ACCESS,
 		SEPARATOR, // () {} [] ... ; //
 		KEYWORD,
@@ -217,6 +218,10 @@ Tag ParseTagLocal (Scope* scope)
 	case I::STAR:
 	
 	tag.category = Tag::STAR;
+	return tag;
+	
+	case I::TILDE:
+	tag.category = Tag::TILDE;
 	return tag;
 	
 	case I::UNDERSCORE:
@@ -711,6 +716,102 @@ Symbol* ParseKeywordStatement (Tag tag, Scope* scope)
 
 // -------------------------------- //
 
+Type ParseType (Tag tag, Scope* scope)
+{
+	Type type;
+	
+	enum { TYPE, KEYWORD, POINTER }
+	last_parsed;
+	
+	bool type_parsed = false;
+	
+	string wrong_tag = " is not a datatype or qualifier";
+	
+	while (true)
+	{
+		switch (tag.category)
+		{
+		case Tag::KEYWORD:
+			last_parsed = KEYWORD;
+			
+			if (tag.keytag.category isnt Tag::Keytag::QUALIFIER)
+			{
+				Log (Error::WARNING, tag.token, scope,
+				tag.token.str, wrong_tag);
+				
+				if (type_parsed) return type;
+			}
+			
+			switch (tag.keytag.keyword)
+			{
+				case Keyword::STATIC:
+				type.STATIC = true;
+				break;
+				
+				case Keyword::INLINE:
+				type.INLINE = true;
+				break;
+				
+				case Keyword::LOCAL:
+				type.LOCAL = true;
+				break;
+				
+				case Keyword::CONST:
+				
+				if (last_parsed is POINTER)
+					type.indirection |= 1 << (2*type.indirection_ct+1);
+				else
+					type.CONST = true;
+				break;
+				
+				default:
+				// unreachable (should be)
+				// TODO: qualifier enum to remove this ambiguity
+				fprintf (stderr, "%s keyword incorrectly passed as qualifier\n", tag.token.str);
+			}
+		break;
+			
+		case Tag::TYPE:
+			
+			if (type_parsed)
+				Log (Error::WARNING, tag.token, scope,
+				tag.token.str," overrides previously specified type of ", type.print_data());
+			else
+				type_parsed = true,
+				last_parsed = TYPE;
+			
+			type = tag.type;
+			
+		break;
+			
+		case Tag::STAR:
+		case Tag::TILDE:
+			
+			if (not type_parsed)
+			{
+				Log (Error::WARNING, tag.token, scope,
+				"Can't specify pointer before underlying datatype");
+				break;
+			}
+			last_parsed = POINTER;
+			if (tag.category is Tag::TILDE)
+				type.indirection |= 1 << (2*type.indirection_ct+0);
+			type.indirection_ct++;
+			
+		break;
+			
+		default:
+			Log	(Error::WARNING, tag.token, scope,
+			tag.token.str, wrong_tag);
+			
+			if (type_parsed) return type;
+		}
+		tag = ParseTag (scope);
+	}
+	
+	return type;
+}
+
 // TODO: ParseCaseStatement implementation
 Symbol* ParseCaseStatement (Tag tag, Scope* scope)
 {
@@ -758,9 +859,6 @@ Symbol* ParseJumpStatement (Tag tag, Scope* scope)
 		next = ParseTag (scope);
 		if (next.category is Tag::KEYWORD and
 		    not next.nested);
-				
-		case Keyword::RETURN:
-		
 		
 		default: break;
 	}
