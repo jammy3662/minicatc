@@ -1,10 +1,10 @@
-#include "expression.h"
+#include "symbol.h"
 
 typedef TokenID ID;
 
 namespace CatLang
 {
-	OperatorType TypeOfOp (Token t)
+	Expression::OperatorType Expression::TypeOfOp (Token t)
 	{
 		OperatorType ot = {0};
 		
@@ -66,85 +66,7 @@ namespace CatLang
 		return ot;
 	}
 	
-	bool IsPrefixOperator (Token t)
-	{
-		switch (t.kind)
-		{
-			case ID::PLUS:
-			case ID::MINUS:
-			case ID::PLUSx2: // increment
-			case ID::MINUSx2: // decrement
-			case ID::TILDE: // complement
-			case ID::BANG: // not
-			case ID::AMP: // address of
-			case ID::STAR: // value at
-			case ID::PAREN: // type cast
-			return true;
-			
-			default: return false;
-		}
-	}
-
-	bool IsPostfixOperator (Token t)
-	{
-		switch (t.kind)
-		{
-			case ID::PLUSx2:
-			case ID::MINUSx2:
-			case ID::PAREN: // function call
-			case ID::BRACKET: // subscript
-			case ID::ARROW: // legacy member access
-			return true;
-			
-			default: return false;
-		}
-	}
-
-	bool IsInfixOperator (Token t)
-	{
-		switch (t.kind)
-		{
-			case ID::PLUS:
-			case ID::MINUS:
-			case ID::STAR: // multiply
-			case ID::SLASH: // divide
-			case ID::MOD: // modulo
-			case ID::AMP: // and
-			case ID::PIPE:	// or
-			case ID::POWER:	// xor
-			case ID::LEFTx2: // left shift
-			case ID::RIGHTx2: // right shift
-			case ID::LEFTx3: // left rotate
-			case ID::RIGHTx3: // right rotate
-			case ID::AMPx2: // logical and
-			case ID::PIPEx2: // logical or
-			case ID::BANG: // not
-			case ID::LEFT: // less than
-			case ID::RIGHT: // more than
-			case ID::EQUAL:
-			return true;
-			
-			default: return false;
-		}
-	}
-
-	// a terminal operator is not included in any expression
-	bool IsTerminalOperator (Token t)
-	{
-		switch (t.kind)
-		{
-			case ID::END_FILE: // end of file
-			case ID::PAREN_R: // END group
-			case ID::BRACKET_R: // END list
-			case ID::BRACE_R: // END frame (scoped expression)
-			case ID::SEMI: // END (general)
-			return true;
-			
-			default: return false;
-		}
-	}
-
-	bool IsOperator (Token t)
+	bool Expression::IsOperator (Token t)
 	{
 		auto type = TypeOfOp (t);
 		return (type.infix or type.prefix or type.postfix);

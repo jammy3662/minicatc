@@ -51,7 +51,7 @@ typedef uint64_t uint64;
 #define uint8 uint64_t
 #endif
 
-typedef char byte;
+#define byte char
 
 #define is ==
 #define isnt !=

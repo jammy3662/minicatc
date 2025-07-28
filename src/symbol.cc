@@ -11,6 +11,38 @@ namespace CatLang {
 
 typedef TokenID ID;
 
+bool Type::indirection_const (fast idx)
+{
+	return indirection & (1 << (2*idx + 1));
+}
+
+bool Type::indirection_ref (fast idx)
+{
+	return indirection & (1 << (2*idx + 0));
+}
+
+void Type::indirection_set_const (bool constness)
+{
+	fast idx = indirection_ct - 1;
+	byte const_bit = (1 && constness) << (2*idx + 1);
+	
+	// unset bits
+	indirection &= ~const_bit;
+	// set bits according to input values
+	indirection |= const_bit;
+}
+
+void Type::indirection_set_ref (bool refness)
+{
+	fast idx = indirection_ct - 1;
+	byte ref_bit = (1 && refness) << (2*idx +	0);
+	
+	// unset bits
+	indirection &= ~ref_bit;
+	// set bits according to input values
+	indirection |= ref_bit;
+}
+
 string Type::print_data ()
 {
 	std::stringstream stream;
@@ -20,6 +52,8 @@ string Type::print_data ()
 	
 	switch (data)
 	{
+		case CHAR:
+		stream <<	signed_str << "char "; break;
 		case BYTE:
 		stream << signed_str <<	"byte "; break;
 		case SHORT:
@@ -27,16 +61,9 @@ string Type::print_data ()
 		case INT:
 		stream << signed_str <<	"int "; break;
 		case LONG:
-		stream << signed_str <<	"long int "; break;
-		case LONG_L:
-		stream << signed_str <<	"long long int "; break;
-		
+		stream << signed_str << ((LONG)?"long ":"")<<"long int "; break;
 		case FLOAT:
-		stream <<	ric_str << "float "; break;
-		case DOUBLE:
-		stream << ric_str << "double "; break;
-		case DOUBLE_L:
-		stream << ric_str << "long double"; break;
+		stream <<	ric_str << ((LONG)?"long ":"")<<((DOUBLE)?"double ":"float "); break;
 		
 		case VOID:
 		stream << "void "; break;
@@ -71,6 +98,18 @@ string Type::print ()
 	
 	auto str = stream.str();
 	return str;
+}
+
+Type Type::invalid ()
+{
+	Type type;
+	type.data = Type::NONE;
+}
+
+inline
+bool Type::is_valid ()
+{
+	return data isnt NONE;
 }
 
 Symbol* lookup (char* name, Symbol* start)

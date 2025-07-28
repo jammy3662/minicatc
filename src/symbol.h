@@ -1,6 +1,7 @@
 #ifndef SYMBOL_DOT_H
 #define SYMBOL_DOT_H
 
+#include <sstream>
 #include "symbol.def"
 #include "token.h"
 
@@ -20,32 +21,58 @@ struct Error
 	code;
 };
 
+struct Tuple;
 struct Scope;
+
+struct Tag;
 
 struct Type
 {
 	enum DataType
 	{	//- Special types -//
-		INVALID	= -1,
-		VOID = 0, STRUCTURED /* struct, union, enum, or function */,
+		NONE	= -1,
+		VOID = 0, STRUCTURED /* struct, union, function, or enum */,
 		//- Arithmetic types -//
-		BYTE, SHORT, INT, LONG, LONG_L /* long long */,
-		FLOAT, DOUBLE, DOUBLE_L /* long double */,
+		BIT, CHAR, BYTE, SHORT, INT, LONG,
+		FLOAT,
 	};
 	
-	Scope* definition; // struct, union, function, or enum
 	DataType data;
+	
+	union {
+	Tuple* tuple;
+	Scope* definition;
+	};
 	
 	byte indirection_ct;
 	long indirection; // sequence of pointers or references to underlying type
 	// (2 bits each, constness [1] and ptr/ref [0])
 
-	byte
-	CONST: 1, STATIC: 1, LOCAL: 1, INLINE: 1, SIGNED: 1, RIC: 2,
+	enum RIC
+	{ REAL = 0b00, IMAGINARY = 0b01, COMPLEX = 0b11 };
+
+	unsigned byte
+	CONST: 1, STATIC: 1, LOCAL: 1, INLINE: 1, SIGNED: 1, DOUBLE: 1, RIC: 2,
 	REGISTER: 1, RESTRICT: 1, VOLATILE: 1, EXTERN: 1; // real, imaginary, complex (both) //;
+	
+	Tuple* parameters; // for function types
+	
+	void indirection_set_const (bool constness);
+	void indirection_set_ref (bool refness);
+	bool indirection_const (fast idx);
+	bool indirection_ref (fast idx);
 	
 	string print ();
 	string print_data ();
+	
+	static
+	Type parse (Scope*,
+	            Tag* first_tag = 0);
+	
+	static
+	Type invalid ();
+	
+	bool is_valid ();
 };
 
 struct Scope;
@@ -90,6 +117,12 @@ struct Symbol
 	
 	char* name = "unnamed symbol";
 	Kind kind;
+	
+	template <typename... T>
+	Error Log (Error::Level lvl, Token token, T... diagnostics);
+	
+	static
+	Symbol* parse (Scope*);
 };
 
 Symbol* const last_symbol = (Symbol*) -1;
@@ -99,6 +132,9 @@ struct Marker: Symbol
 	fast target_index;
 	
 	Marker () {kind = MARKER;}
+	
+	static
+	Marker* parse (Scope*, Tag* name = 0);
 };
 
 struct Expression;
@@ -106,6 +142,10 @@ struct Expression;
 struct Object: Symbol
 {
 	Type datatype;
+	
+	static
+	Object* parse (Scope*,
+		Tag* first_tag = 0);
 };
 
 struct Variable: Object
@@ -113,6 +153,16 @@ struct Variable: Object
 	Variable () {kind = VARIABLE;}
 	
 	Expression* Initializer;
+	
+	static
+	Variable* parse (Scope*,
+		Type type,
+		Tag* identifier,
+		bool initialize);
+	
+	static
+	Variable* parse (Scope*,
+		Tag* first_tag = 0);
 };
 
 struct Expression: Object
@@ -208,18 +258,39 @@ struct Expression: Object
 	};
 	
 	Opcode opcode;
-	bool constant_value;
-};
+	bool constant_value = false;
+	bool parenthesized = false;
+	
+	struct OperatorType
+	{
+		bool prefix: 1;
+		bool infix: 1;
+		bool postfix: 1;
+	};
 
-//  access sizeof, typeof, countof, nameof, or fieldsof an object
-struct Meta: Symbol
-{
-	Meta () {kind = META;}
+	// an operator may have multiple positions
+	// example, ++ is both prefix & postfix
+	static OperatorType TypeOfOp (Token);
+
+	static bool IsOperator (Token);
 	
-	enum { SIZE, TYPE, COUNT, NAME, FIELDS }
-	property;
+	static
+	Expression* parse
+	(
+		Scope*,
+		bool parenthesized = false,
+		Tag* first_tag = 0
+	);
 	
-	Symbol* symbol;
+	// pre-typed expression
+	static
+	Expression* parse
+	(
+		Scope*,
+		bool parenthesized = false,
+		Type* type = 0,
+		Tag* next_tag = 0
+	);
 };
 
 // simplest complex type
@@ -236,9 +307,13 @@ struct Tuple: Symbol
 	Table <string, fast> Tags;
 	
 	int Insert (Symbol*, char* name = 0);
+	
+	static
+	Tuple* parse (Scope*,
+	              Tag* first_tag = 0);
+	
+	static Type asType ();
 };
-
-struct Tag;
 
 // note: Symbol.kind must be set manually
 // because a Scope describes so many different symbols
@@ -246,18 +321,77 @@ struct Scope: Tuple
 {
 	Table <string, Tag*> Aliases;
 	
-	Type Receiver; // for methods like int.sign()
-	Tuple Parameters; // fields passed in for functions
+	Tuple* Parameters; // fields passed in for functions
 	
 	bool symbolic: 1; // false for modules (single instance)
 	bool overlap: 1; // whether fields share memory space (unions)
 	bool braced: 1; // true when scope starts with {
 	bool closed: 1; // true when } or ...
+	
+	static
+	Scope* parse (Scope* parent, bool embedded = false, bool braced = false);
+	// * if embedded, parse directly into parent scope,
+	//   rather than creating a new scope in parent
+	// * if braced, expect a } to close instead of ...
+};
+
+struct Struct: Scope
+{
+	Struct () { kind = STRUCT; }
+	
+	static
+	Struct* parse (Scope*, Tag* first_tag = 0);
+};
+
+struct Union: Struct
+{
+	Union () { kind = UNION; }
+	
+	static
+	Union* parse (Scope*);
+};
+
+struct Module: Struct
+{
+	Module () { kind = MODULE; }
+	
+	static
+	Module* parse (Scope*);
+};
+
+struct Enum: Scope
+{
+	Enum () { kind = ENUM; }
+	
+	static
+	Enum* parse (Scope*);
+};
+
+struct Function: Scope
+{
+	Function () { kind = FUNCTION; }
+	
+	static
+	Function* parse (Scope*);
 };
 
 struct Selection: Symbol
 {
 	
+};
+
+//  access sizeof, typeof, countof, nameof, or fieldsof an object
+struct Meta: Expression
+{
+	Meta () {kind = META;}
+	
+	enum { SIZE, TYPE, COUNT, NAME }
+	property;
+	
+	Object* object;
+	
+	static
+	Meta* parse (Scope*);
 };
 
 Symbol* findin (char* name, Symbol* scope); // look for a symbol only within the scope, not its outer scopes
@@ -267,6 +401,19 @@ Symbol* lookup (char* name, Symbol* scope, byte type);
 Error Log (char* message, Token, Error::Level level, Symbol* scope);
 Error Log (char* message, Token, Error::Level level, Error::Code code, Symbol* scope);
 Error Log (Error err, Symbol* scope);
+
+template <typename... T>
+Error Symbol::Log (Error::Level lvl, Token token, T... diagnostics)
+{
+	std::stringstream msg;
+	
+	(msg << ... << diagnostics);
+		
+	auto str = msg.str();
+	auto cstr = (char*) str.c_str();
+	
+	return CatLang::Log (cstr, token, lvl, this);
+}
 
 }
 
